@@ -1,0 +1,61 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Минимальный дочерний процесс без повторной загрузки Symfony Kernel.
+// Родитель принудительно завершает его по deadline; секреты приходят только через stdin.
+ini_set('display_errors', '0');
+ini_set('log_errors', '0');
+
+require dirname(__DIR__).'/vendor/autoload.php';
+
+try {
+    $parameters = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+
+    switch ($argv[1] ?? '') {
+        case 'postgres':
+            $connection = Doctrine\DBAL\DriverManager::getConnection($parameters);
+            try {
+                if (1 !== (int) $connection->executeQuery('SELECT 1')->fetchOne()) {
+                    exit(1);
+                }
+            } finally {
+                $connection->close();
+            }
+            break;
+
+        case 'redis':
+            $redis = Symfony\Component\Cache\Adapter\RedisAdapter::createConnection(
+                $parameters['dsn'],
+                array_replace($parameters['options'], ['lazy' => false]),
+            );
+            try {
+                if (!in_array($redis->ping(), [true, '+PONG', 'PONG'], true)) {
+                    exit(1);
+                }
+            } finally {
+                $redis->close();
+            }
+            break;
+
+        case 'rabbitmq':
+            $connection = Symfony\Component\Messenger\Bridge\Amqp\Transport\Connection::fromDsn(
+                $parameters['dsn'],
+                $parameters['options'],
+            );
+            try {
+                // Открытие AMQP channel проверяет TLS, credentials и доступ к vhost.
+                // Очереди/exchanges не объявляются, сообщения не публикуются и не читаются.
+                $connection->channel();
+            } finally {
+                $connection->clear();
+            }
+            break;
+
+        default:
+            exit(1);
+    }
+} catch (Throwable) {
+    exit(1);
+}

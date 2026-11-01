@@ -1,0 +1,16 @@
+.git
+.idea
+.codex
+.vscode
+.env
+runtime
+app/vendor
+app/var
+app/.env
+app/.env.*
+!app/.env.dist
+app/.phpunit.cache
+app/.php-cs-fixer.cache
+app/.deptrac.cache
+app/tests
+**/.DS_Store

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<Valuta name="Foreign Currency Market Lib">
+<Item ID="R01015"><Name>Афгани</Name><EngName>Afghani</EngName><Nominal>100</Nominal><ParentCode>R01015    </ParentCode><ISO_Num_Code>971</ISO_Num_Code><ISO_Char_Code>AFN</ISO_Char_Code></Item>
+</Valuta>

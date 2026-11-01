@@ -1,0 +1,10 @@
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+    scanDirectories:
+        - migrations
+    tmpDir: var/phpstan
+    symfony:
+        containerXmlPath: var/cache/test/App_KernelTestDebugContainer.xml

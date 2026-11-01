@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<Valuta name="Foreign Currency Market Lib">
+<Item ID="R01010"><Name>Австралийский доллар</Name><EngName>Australian Dollar</EngName><Nominal>1</Nominal><ParentCode>R01010    </ParentCode><ISO_Num_Code>36</ISO_Num_Code><ISO_Char_Code>AUD</ISO_Char_Code></Item>
+<Item ID="R01235"><Name>Доллар США</Name><EngName>US Dollar</EngName><Nominal>1</Nominal><ParentCode>R01235    </ParentCode><ISO_Num_Code>840</ISO_Num_Code><ISO_Char_Code>USD</ISO_Char_Code></Item>
+<Item ID="R01280"><Name>Индонезийских рупий</Name><EngName>Indonesian Rupiahs</EngName><Nominal>10000</Nominal><ParentCode>R01280    </ParentCode><ISO_Num_Code>360</ISO_Num_Code><ISO_Char_Code>IDR</ISO_Char_Code></Item>
+<Item ID="R01436"><Name>Литовский лит</Name><EngName>Lithuanian Lit</EngName><Nominal>1</Nominal><ParentCode>R01435    </ParentCode><ISO_Num_Code></ISO_Num_Code><ISO_Char_Code></ISO_Char_Code></Item>
+</Valuta>

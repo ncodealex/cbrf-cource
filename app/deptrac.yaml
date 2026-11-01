@@ -1,0 +1,247 @@
+# Контроль зависимостей между слоями (make qa).
+#
+# Onion: Domain <- Application <- Infrastructure / Presentation.
+# Слои собираются по структуре каталогов модулей:
+#   src/Modules/<Module>/{Domain,Application,Infrastructure,Presentation} — бизнес-модули
+#   src/Support/<Module>/{Domain,Application,Infrastructure,Presentation} — технические модули (Health ...)
+#   src/Shared/{Domain,Infrastructure}                                      — общий код
+#   src/Integration/<Source>/{Domain,Application,Integration}               — клиенты внешних систем (Cbr ...)
+#
+# Бизнес-модули не зависят от внешних систем: к интеграции обращается только адаптер
+# в Infrastructure модуля и только через её публичный контракт (Application + Domain).
+#
+# Сторонний код разбит на точечные слои: в Domain и Application разрешены только
+# перечисленные ниже API, всё остальное из Symfony/Doctrine — слой Vendor.
+
+deptrac:
+    paths:
+        - ./src
+
+    exclude_files:
+        - '#.*Kernel\.php$#'
+
+    layers:
+        # ============================================
+        # SHARED — общий код всех модулей
+        # ============================================
+        -   name: Shared.Domain
+            collectors:
+                -   type: directory
+                    value: src/Shared/Domain/.*
+
+        -   name: Shared.Infrastructure
+            collectors:
+                -   type: directory
+                    value: src/Shared/Infrastructure/.*
+
+        # ============================================
+        # МОДУЛИ (Modules/* и Support/*)
+        # ============================================
+        -   name: Domain
+            collectors:
+                -   type: directory
+                    value: src/(?:Cources/Domain|(?:Modules|Support)/[^/]+/Domain)/.*
+
+        -   name: Application
+            collectors:
+                -   type: directory
+                    value: src/(?:Cources/Application|(?:Modules|Support)/[^/]+/Application)/.*
+
+        -   name: Infrastructure
+            collectors:
+                -   type: directory
+                    value: src/(?:Cources/Infrastructure|(?:Modules|Support)/[^/]+/Infrastructure)/.*
+
+        # HTTP-контроллеры, консольные команды, message handlers, event listeners.
+        # Знают об Application и Domain, но не о конкретной Infrastructure.
+        # Бизнес-модули называют этот слой Endpoints, технические — Presentation.
+        -   name: Presentation
+            collectors:
+                -   type: directory
+                    value: src/(Modules|Support)/[^/]+/(Presentation|Endpoints)/.*
+
+        # ============================================
+        # ИНТЕГРАЦИИ (Integration/*) — отдельные слои: общий слой Domain
+        # с бизнес-модулями открыл бы доменам доступ к DTO внешних систем.
+        # ============================================
+        # DTO и ошибки внешней системы.
+        -   name: Integration.Domain
+            collectors:
+                -   type: directory
+                    value: src/Integration/[^/]+/Domain/.*
+
+        # Публичный контракт клиента (интерфейсы).
+        -   name: Integration.Application
+            collectors:
+                -   type: directory
+                    value: src/Integration/[^/]+/Application/.*
+
+        # Реализация: HTTP, разбор форматов. Снаружи модуля недоступна.
+        -   name: Integration.Client
+            collectors:
+                -   type: directory
+                    value: src/Integration/[^/]+/Integration/.*
+
+        # ============================================
+        # СТОРОННИЙ КОД
+        # ============================================
+        # Doctrine API, допустимые в доменных моделях:
+        # - ORM Mapping attributes (#[ORM\Entity], #[ORM\Column] ...) для метаданных сущностей;
+        # - Collections для связей между сущностями.
+        -   name: Doctrine.DomainModel
+            collectors:
+                -   type: classNameRegex
+                    value: '#^Doctrine\\ORM\\Mapping\\#'
+                -   type: classNameRegex
+                    value: '#^Doctrine\\Common\\Collections\\(ArrayCollection|Collection|ReadableCollection|Selectable|Criteria)$#'
+
+        # Symfony Clock DatePoint — неизменяемый тип даты/времени, допустим в доменных моделях
+        # (Doctrine-тип date_point регистрируется DoctrineBundle автоматически).
+        -   name: Symfony.DatePoint
+            collectors:
+                -   type: classNameRegex
+                    value: '#^Symfony\\Component\\Clock\\DatePoint$#'
+                -   type: classNameRegex
+                    value: '#^Symfony\\Bridge\\Doctrine\\Types\\DatePointType$#'
+
+        # Symfony Clock (symfony/clock): источник текущего времени для use cases.
+        # Domain получает время аргументом (DatePoint), а не обращается к часам сам.
+        # Psr\Clock\ClockInterface входит в слой Psr; статический Clock::get() не используется.
+        -   name: Symfony.ClockInterface
+            collectors:
+                -   type: classNameRegex
+                    value: '#^Symfony\\Component\\Clock\\ClockInterface$#'
+
+        # Symfony DI attributes (#[AsAlias], #[Autowire], #[AutowireIterator], #[AutoconfigureTag] ...)
+        # для декларативной регистрации сервисов. Разрешены в Application, но не в Domain.
+        -   name: Symfony.DependencyInjectionAttribute
+            collectors:
+                -   type: classNameRegex
+                    value: '#^Symfony\\Component\\DependencyInjection\\Attribute\\#'
+
+        # PSR-интерфейсы (LoggerInterface, CacheItemPoolInterface, ClockInterface ...) —
+        # абстракции, допустимые в Application.
+        -   name: Psr
+            collectors:
+                -   type: classNameRegex
+                    value: '#^Psr\\#'
+
+        # Остальной фреймворк и библиотеки — только Infrastructure и Presentation.
+        -   name: Vendor
+            collectors:
+                -   type: classNameRegex
+                    value: '#^Symfony\\(?!Component\\Clock\\(DatePoint|ClockInterface)$|Bridge\\Doctrine\\Types\\DatePointType$|Component\\DependencyInjection\\Attribute\\)#'
+                -   type: classNameRegex
+                    value: '#^Doctrine\\(?!ORM\\Mapping\\|Common\\Collections\\(ArrayCollection|Collection|ReadableCollection|Selectable|Criteria)$)#'
+                -   type: classNameRegex
+                    value: '#^Monolog\\#'
+
+    # ============================================
+    # ПРАВИЛА ЗАВИСИМОСТЕЙ
+    # ============================================
+    ruleset:
+        # --- Shared ---
+        Shared.Domain:
+            - Doctrine.DomainModel
+            - Symfony.DatePoint
+
+        Shared.Infrastructure:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+
+        # --- Модули ---
+        # Domain: только свой код, Shared.Domain и разрешённые доменные API.
+        # Symfony DI attributes, HTTP, Messenger и т.п. в Domain запрещены.
+        Domain:
+            - Shared.Domain
+            - Doctrine.DomainModel
+            - Symfony.DatePoint
+
+        # Application: use cases и контракты. От фреймворка — только DI attributes и PSR.
+        Application:
+            - Domain
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+
+        # Infrastructure: реализации контрактов (Doctrine, Redis, AMQP, адаптеры интеграций).
+        Infrastructure:
+            - Domain
+            - Application
+            - Integration.Domain
+            - Integration.Application
+            - Shared.Domain
+            - Shared.Infrastructure
+            - Doctrine.DomainModel
+            - Symfony.DatePoint
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+
+        # Presentation: точки входа. Работает через Application, без прямого доступа к Infrastructure.
+        Presentation:
+            - Domain
+            - Application
+            - Shared.Domain
+            - Shared.Infrastructure
+            - Symfony.DatePoint
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+
+        # --- Интеграции ---
+        Integration.Domain:
+            - Shared.Domain
+            - Symfony.DatePoint
+
+        Integration.Application:
+            - Integration.Domain
+            - Symfony.DatePoint
+
+        Integration.Client:
+            - Integration.Domain
+            - Integration.Application
+            - Symfony.DatePoint
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+
+        Doctrine.DomainModel: ~
+        Symfony.DatePoint: ~
+        Symfony.ClockInterface: ~
+        Symfony.DependencyInjectionAttribute: ~
+        Psr: ~
+        Vendor: ~
+
+    # Известные осознанные нарушения (baseline) — с обязательным комментарием, например:
+    # skip_violations:
+    #     # Ограничение Doctrine: Entity ссылается на класс репозитория в #[ORM\Entity(repositoryClass: ...)]
+    #     App\Modules\Billing\Domain\Entity\Invoice:
+    #         - App\Modules\Billing\Infrastructure\Doctrine\InvoiceRepository
+
+    formatters:
+        graphviz:
+            hidden_layers:
+                - Vendor
+            groups:
+                Shared:
+                    - Shared.Domain
+                    - Shared.Infrastructure
+                Modules:
+                    - Domain
+                    - Application
+                    - Infrastructure
+                    - Presentation
+                Integrations:
+                    - Integration.Domain
+                    - Integration.Application
+                    - Integration.Client

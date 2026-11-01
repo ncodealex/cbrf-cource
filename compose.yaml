@@ -1,0 +1,126 @@
+# Production-like окружение: код в образе, подготовка приложения при запуске.
+# Development — overlay compose.dev.yaml (make dev).
+name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}
+
+x-app-environment: &app-environment
+    APP_ENV: ${APP_ENV:-prod}
+    APP_DEBUG: ${APP_DEBUG:-0}
+    APP_SECRET:
+    TZ: ${TZ:-Europe/Moscow}
+    DEFAULT_URI: ${DEFAULT_URI:-http://localhost:${HTTP_PORT:-8080}}
+    POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+    POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+    POSTGRES_DB: ${POSTGRES_DB:-app}
+    POSTGRES_USER: ${POSTGRES_USER:-app}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    REDIS_URL: redis://redis:6379
+    MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-amqp://rabbitmq:5672/%2f}
+    RABBITMQ_USER: ${RABBITMQ_USER:-app}
+    RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-app}
+    HEALTH_CHECK_RABBITMQ: ${HEALTH_CHECK_RABBITMQ:-0}
+    CBR_BASE_URL: ${CBR_BASE_URL:-https://www.cbr.ru}
+
+x-app-depends-on: &app-depends-on
+    postgres:
+        condition: service_healthy
+    redis:
+        condition: service_healthy
+    rabbitmq:
+        condition: service_healthy
+
+services:
+    app:
+        image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
+        build:
+            context: .
+            dockerfile: .docker/php/Dockerfile
+            target: prod
+            args:
+                DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+        init: true
+        environment:
+            <<: *app-environment
+            APP_INITIALIZE: 1
+        depends_on: *app-depends-on
+        healthcheck:
+            test: ["CMD", "test", "-f", "/tmp/app-ready"]
+            interval: 10s
+            timeout: 3s
+            retries: 3
+            start_period: 120s
+        restart: unless-stopped
+        stop_grace_period: 50s
+
+    # Messenger consumer. Масштабируется: docker compose up -d --scale worker=N.
+    # PID 1 — tini (init: true), SIGTERM доходит до php, который завершает текущее сообщение.
+    # --time-limit/--memory-limit периодически перезапускают процесс через restart policy.
+    worker:
+        image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
+        command: ["php", "-d", "max_execution_time=0", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M", "--no-interaction", "-v"]
+        init: true
+        stop_signal: SIGTERM
+        # Бюджет одного handler <=60s; --time-limit ограничивает жизнь worker, не handler.
+        stop_grace_period: 65s
+        environment: *app-environment
+        depends_on:
+            <<: *app-depends-on
+            app:
+                condition: service_healthy
+        restart: unless-stopped
+
+    postgres:
+        container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-pg
+        image: ${DOCKER_REGISTRY:-docker.io/library}/postgres:${POSTGRES_VERSION:-18.6}
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-app}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+            POSTGRES_DB: ${POSTGRES_DB:-app}
+        volumes:
+            # PostgreSQL 18: PGDATA=/var/lib/postgresql/18/docker, монтируется родительский каталог.
+            - postgres_data:/var/lib/postgresql
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+            start_period: 10s
+        restart: unless-stopped
+
+    redis:
+        container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-redis
+        image: ${DOCKER_REGISTRY:-docker.io/library}/redis:${REDIS_VERSION:-8.10.2-alpine}
+        command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 10
+        restart: unless-stopped
+
+    rabbitmq:
+        container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-rmq
+        image: ${DOCKER_REGISTRY:-docker.io/library}/rabbitmq:${RABBITMQ_VERSION:-4.3.6-management-alpine}
+        # Имя узла фиксировано: от него зависит каталог данных в volume.
+        hostname: rabbitmq
+        environment:
+            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-app}
+            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-app}
+        volumes:
+            - rabbitmq_data:/var/lib/rabbitmq
+        ports:
+            # Management UI — только с localhost. AMQP (5672) доступен лишь во внутренней сети.
+            - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+            interval: 10s
+            timeout: 10s
+            retries: 10
+            start_period: 20s
+        restart: unless-stopped
+
+volumes:
+    postgres_data:
+    redis_data:
+    rabbitmq_data:

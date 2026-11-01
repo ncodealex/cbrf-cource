@@ -1,0 +1,87 @@
+# Самостоятельное окружение: test.sh задаёт уникальный project через -p.
+# Без опубликованных портов и рабочих volumes; исходники только для чтения.
+services:
+    test:
+        image: ${COMPOSE_PROJECT_NAME:-starter}-app:test
+        build:
+            context: .
+            dockerfile: .docker/php/Dockerfile
+            target: dev
+            args:
+                DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+                APP_UID: ${APP_UID:-1000}
+                APP_GID: ${APP_GID:-1000}
+        init: true
+        entrypoint: ["sh", "/tests/run-tests.sh"]
+        environment:
+            APP_ENV: test
+            APP_DEBUG: 1
+            APP_SECRET: test-secret-not-for-production
+            TZ: ${TZ:-Europe/Moscow}
+            DEFAULT_URI: http://localhost
+            POSTGRES_HOST: postgres
+            POSTGRES_PORT: 5432
+            POSTGRES_DB: app
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: "test p@ss:#/%&$$word"
+            REDIS_URL: redis://redis:6379
+            MESSENGER_TRANSPORT_DSN: amqp://rabbitmq:5672/%2f
+            RABBITMQ_USER: test
+            RABBITMQ_PASSWORD: "test p@ss:#/%&$$word"
+            HEALTH_CHECK_RABBITMQ: 0
+            XDEBUG_MODE: off
+        volumes:
+            - ./app:/source:ro
+            - ./.docker/scripts/run-tests.sh:/tests/run-tests.sh:ro
+            - composer_cache:/home/app/.composer
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+
+    postgres:
+        image: ${DOCKER_REGISTRY:-docker.io/library}/postgres:${POSTGRES_VERSION:-18.6}
+        environment:
+            POSTGRES_USER: test
+            POSTGRES_PASSWORD: "test p@ss:#/%&$$word"
+            POSTGRES_DB: app
+        tmpfs:
+            - /var/lib/postgresql
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U test -d app"]
+            interval: 2s
+            timeout: 3s
+            retries: 30
+
+    redis:
+        image: ${DOCKER_REGISTRY:-docker.io/library}/redis:${REDIS_VERSION:-8.10.2-alpine}
+        command: ["redis-server", "--save", "", "--appendonly", "no"]
+        tmpfs:
+            - /data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 2s
+            timeout: 3s
+            retries: 30
+
+    rabbitmq:
+        image: ${DOCKER_REGISTRY:-docker.io/library}/rabbitmq:${RABBITMQ_VERSION:-4.3.6-management-alpine}
+        environment:
+            RABBITMQ_DEFAULT_USER: test
+            RABBITMQ_DEFAULT_PASS: "test p@ss:#/%&$$word"
+        tmpfs:
+            - /var/lib/rabbitmq
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+            interval: 5s
+            timeout: 10s
+            retries: 20
+            start_period: 10s
+
+volumes:
+    composer_cache:
+        # Только архивы Composer; сохраняются между прогонами.
+        name: conexus-test-composer-${APP_UID:-1000}-${APP_GID:-1000}
