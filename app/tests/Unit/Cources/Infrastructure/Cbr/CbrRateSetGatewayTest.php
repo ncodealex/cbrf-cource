@@ -128,6 +128,27 @@ final class CbrRateSetGatewayTest extends TestCase
         self::assertNull($set->items['USD']->numCode);
     }
 
+    public function testRestoresLegacyCodesAndSkipsIncompleteRows(): void
+    {
+        $body = '<ValCurs Date="28.01.1994" name="Foreign Currency Market">'
+            . '<Valute ID="R01235"><NumCode>840</NumCode><CharCode>USD</CharCode><Nominal>1</Nominal>'
+            . '<Name>Доллар США</Name><Value>1542,0000</Value><VunitRate>1542</VunitRate></Valute>'
+            . '<Valute ID="R01720A"><Nominal>10</Nominal><Name>Украинских карбованецев</Name>'
+            . '<Value>0,4400</Value><VunitRate/></Valute>'
+            . '<Valute ID="UNKNOWN"><Nominal>1</Nominal><Name>Запись без кода</Name>'
+            . '<Value>1,0000</Value></Valute></ValCurs>';
+
+        $set = $this->gateway(new MockResponse($body))->fetch(DatePointParser::parse('1994-01-31'));
+
+        self::assertSame('1994-01-28', $set->date());
+        self::assertCount(2, $set->items);
+        self::assertSame('1542.0000', (string)$set->items['USD']->value);
+        self::assertSame('R01720A', $set->items['UAK']->sourceId);
+        self::assertSame('804', $set->items['UAK']->numCode);
+        self::assertSame(10, $set->items['UAK']->nominal);
+        self::assertSame('0.4400', (string)$set->items['UAK']->value);
+    }
+
     private function gateway(MockResponse $response): CbrRateSetGateway
     {
         return $this->createGateway(new MockHttpClient($response, 'https://www.cbr.ru'));

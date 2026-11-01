@@ -26,7 +26,6 @@ use Throwable;
 #[AsCommand(name: 'app:rates:get', description: 'Получить официальный курс валюты и его изменение')]
 final readonly class GetExchangeRateCommand
 {
-    public const string DATE_UI_FORMAT = 'd.m.Y';
 
     public const string RENDER_FORMAT_TABLE = 'table';
 
@@ -42,7 +41,7 @@ final readonly class GetExchangeRateCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'Код валюты')] string $currency,
+        #[Argument(description: 'Код валюты', name: 'currency')] string $currency,
         #[Option(description: 'Базовая валюта')] string $base = 'RUR',
         #[Option(description: 'Дата курса')] ?string $date = null,
         #[Option(description: 'Формат: table или json')] string $format = self::RENDER_FORMAT_TABLE,

@@ -9,6 +9,7 @@ use App\Cources\Domain\Entity\RateSet;
 use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
 use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
 use App\Cources\Infrastructure\Cbr\Exception\CbrRateLimited;
+use App\Cources\Infrastructure\Cbr\Exception\CbrSerialization;
 use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
 use App\Cources\Infrastructure\Cbr\Response\RateSetResponse;
@@ -66,6 +67,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
             $this->logger->warning('Ошибка получения официального набора курсов ЦБ', [
                 'query' => $query,
                 'error' => $e->getMessage(),
+                'prev' => $e->getPrevious()?->getMessage()
             ]);
             throw $e;
         }
@@ -82,7 +84,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
                 XmlEncoder::LOAD_OPTIONS         => LIBXML_NONET | LIBXML_NOBLANKS,
             ]);
         } catch (SerializerException $e) {
-            throw new CbrInvalidResponse('Некорректная структура ответа Банка России', 0, $e);
+            throw new CbrSerialization('Ошибка сериализации ответа от ЦБ РФ', 0, $e);
         }
 
         return $this->mapper->map($response);
