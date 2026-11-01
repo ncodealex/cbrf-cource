@@ -7,7 +7,10 @@ namespace App\Cources\Domain\Entity;
 use App\Cources\Domain\Exception\ExchangeRate\RateNotFoundForDate;
 use App\Cources\Domain\Exception\InvalidRateSet;
 use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Shared\Domain\DateFormatInterface;
 use Symfony\Component\Clock\DatePoint;
+use function sprintf;
+use const SORT_STRING;
 
 /**
  * Официальный набор курсов на дату действия. Рубль в набор не входит: его курс к себе — 1.
@@ -35,14 +38,14 @@ final readonly class RateSet
                 throw new InvalidRateSet('Набор курсов не должен содержать котировку рубля');
             }
             if (isset($byCode[$code])) {
-                throw new InvalidRateSet(\sprintf('В наборе курсов от %s повторяется валюта %s', $this->date(), $code));
+                throw new InvalidRateSet(sprintf('В наборе курсов от %s повторяется валюта %s', $this->date(), $code));
             }
             $byCode[$code] = $rateItem;
         }
         if ([] === $byCode) {
-            throw new InvalidRateSet(\sprintf('Набор курсов от %s не содержит котировок', $this->date()));
+            throw new InvalidRateSet(sprintf('Набор курсов от %s не содержит котировок', $this->date()));
         }
-        ksort($byCode, \SORT_STRING);
+        ksort($byCode, SORT_STRING);
         $this->items = $byCode;
     }
 
@@ -51,7 +54,7 @@ final readonly class RateSet
      */
     public function date(): string
     {
-        return $this->effectiveDate->format('Y-m-d');
+        return $this->effectiveDate->format(DateFormatInterface::ISO);
     }
 
 

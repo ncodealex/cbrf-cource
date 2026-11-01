@@ -6,7 +6,7 @@ namespace App\Cources\Infrastructure\Mapping;
 
 use App\Cources\Domain\Entity\RateItem;
 use App\Cources\Domain\Entity\RateSet;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Domain\ValueObject\CurrencyCode;
 use BcMath\Number;
 
@@ -37,7 +37,7 @@ final readonly class RateSetMapper
                 || !\is_string($data['effectiveDate']) || !\is_array($data['items']) || !array_is_list($data['items'])) {
                 throw new InvalidRateSetPayload('Некорректная структура набора курсов');
             }
-            $date = MoscowCalendar::date($data['effectiveDate']);
+            $date = DatePointParser::parse($data['effectiveDate']);
             $items = [];
             foreach ($data['items'] as $item) {
                 if (!\is_array($item)

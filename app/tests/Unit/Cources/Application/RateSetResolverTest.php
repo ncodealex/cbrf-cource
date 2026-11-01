@@ -7,33 +7,21 @@ namespace App\Tests\Unit\Cources\Application;
 use App\Cources\Application\Contract\ExternalRateSetGatewayInterface;
 use App\Cources\Application\Contract\RateSetCacheInterface;
 use App\Cources\Application\Contract\RateSetRepositoryInterface;
-use App\Cources\Application\Exception\CbrUnavailable;
 use App\Cources\Application\Exception\RateSetCacheFailure;
 use App\Cources\Application\Exception\RateSetConflict;
 use App\Cources\Application\Exception\RateSetNotFound;
 use App\Cources\Application\Service\RateSetResolver;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
+use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
+use Throwable;
 
 final class RateSetResolverTest extends TestCase
 {
-    public function testCacheHitSkipsOtherSources(): void
-    {
-        $set = RateSets::saturday();
-        $cache = $this->createMock(RateSetCacheInterface::class);
-        $db = $this->createMock(RateSetRepositoryInterface::class);
-        $gateway = $this->createMock(ExternalRateSetGatewayInterface::class);
-        $cache->expects(self::once())->method('get')->willReturn($set);
-        $cache->expects(self::never())->method('put');
-        $db->expects(self::never())->method('get');
-        $db->expects(self::never())->method('save');
-        $gateway->expects(self::never())->method('fetch');
-        self::assertSame($set, new RateSetResolver($cache, $db, $gateway, new NullLogger())->resolve(MoscowCalendar::date('2026-10-26')));
-    }
-
     /** @return iterable<string, array{bool, bool}> */
     public static function cacheFailures(): iterable
     {
@@ -43,13 +31,37 @@ final class RateSetResolverTest extends TestCase
         yield 'обе ошибки' => [true, true];
     }
 
+    /** @return iterable<string, array{string, Throwable}> */
+    public static function sourceErrors(): iterable
+    {
+        yield 'ошибка БД' => ['get', new RuntimeException('Ошибка PostgreSQL')];
+        yield 'ошибка ЦБ' => ['fetch', new CbrUnavailable('Ошибка ЦБ')];
+        yield 'ошибка сохранения' => ['save', new RuntimeException('Ошибка PostgreSQL')];
+        yield 'конфликт' => ['save', new RateSetConflict('Конфликт курсов')];
+    }
+
+    public function testCacheHitSkipsOtherSources(): void
+    {
+        $set     = RateSets::saturday();
+        $cache   = $this->createMock(RateSetCacheInterface::class);
+        $db      = $this->createMock(RateSetRepositoryInterface::class);
+        $gateway = $this->createMock(ExternalRateSetGatewayInterface::class);
+        $cache->expects(self::once())->method('get')->willReturn($set);
+        $cache->expects(self::never())->method('put');
+        $db->expects(self::never())->method('get');
+        $db->expects(self::never())->method('save');
+        $gateway->expects(self::never())->method('fetch');
+        self::assertSame($set,
+            new RateSetResolver($cache, $db, $gateway, new NullLogger())->resolve(DatePointParser::parse('2026-10-26')));
+    }
+
     #[DataProvider('cacheFailures')]
     public function testDatabaseHitAndCacheFailures(bool $getFails, bool $putFails): void
     {
-        $date = MoscowCalendar::date('2026-10-26');
-        $set = RateSets::saturday();
-        $cache = $this->createMock(RateSetCacheInterface::class);
-        $db = $this->createMock(RateSetRepositoryInterface::class);
+        $date    = DatePointParser::parse('2026-10-26');
+        $set     = RateSets::saturday();
+        $cache   = $this->createMock(RateSetCacheInterface::class);
+        $db      = $this->createMock(RateSetRepositoryInterface::class);
         $gateway = $this->createMock(ExternalRateSetGatewayInterface::class);
         $cache->expects(self::once())->method('get')->with($date)->willThrowException($getFails ? new RateSetCacheFailure() : new RateSetNotFound());
         $put = $cache->expects(self::once())->method('put')->with($date, $set);
@@ -65,17 +77,26 @@ final class RateSetResolverTest extends TestCase
     #[DataProvider('cacheFailures')]
     public function testGatewayHitSavesBeforeFillingCache(bool $getFails, bool $putFails): void
     {
-        $date = MoscowCalendar::date('2026-10-26');
-        $set = RateSets::saturday();
-        $events = [];
-        $cache = $this->createMock(RateSetCacheInterface::class);
-        $db = $this->createMock(RateSetRepositoryInterface::class);
+        $date    = DatePointParser::parse('2026-10-26');
+        $set     = RateSets::saturday();
+        $events  = [];
+        $cache   = $this->createMock(RateSetCacheInterface::class);
+        $db      = $this->createMock(RateSetRepositoryInterface::class);
         $gateway = $this->createMock(ExternalRateSetGatewayInterface::class);
         $cache->expects(self::once())->method('get')->willThrowException($getFails ? new RateSetCacheFailure() : new RateSetNotFound());
         $db->expects(self::once())->method('get')->with($date)->willThrowException(new RateSetNotFound());
         $gateway->expects(self::once())->method('fetch')->with($date)->willReturn($set);
-        $db->expects(self::once())->method('save')->with($date, $set)->willReturnCallback(static function () use (&$events): void { $events[] = 'save'; });
-        $cache->expects(self::once())->method('put')->with($date, $set)->willReturnCallback(static function () use (&$events, $putFails): void {
+        $db->expects(self::once())->method('save')->with($date, $set)->willReturnCallback(static function () use (
+            &
+            $events
+        ): void {
+            $events[] = 'save';
+        });
+        $cache->expects(self::once())->method('put')->with($date, $set)->willReturnCallback(static function () use (
+            &
+            $events,
+            $putFails
+        ): void {
             $events[] = 'put';
             if ($putFails) {
                 throw new RateSetCacheFailure();
@@ -85,20 +106,11 @@ final class RateSetResolverTest extends TestCase
         self::assertSame(['save', 'put'], $events);
     }
 
-    /** @return iterable<string, array{string, \Throwable}> */
-    public static function sourceErrors(): iterable
-    {
-        yield 'ошибка БД' => ['get', new \RuntimeException('Ошибка PostgreSQL')];
-        yield 'ошибка ЦБ' => ['fetch', new CbrUnavailable('Ошибка ЦБ')];
-        yield 'ошибка сохранения' => ['save', new \RuntimeException('Ошибка PostgreSQL')];
-        yield 'конфликт' => ['save', new RateSetConflict('Конфликт курсов')];
-    }
-
     #[DataProvider('sourceErrors')]
-    public function testPropagatesSourceErrors(string $operation, \Throwable $error): void
+    public function testPropagatesSourceErrors(string $operation, Throwable $error): void
     {
-        $cache = $this->createMock(RateSetCacheInterface::class);
-        $db = $this->createMock(RateSetRepositoryInterface::class);
+        $cache   = $this->createMock(RateSetCacheInterface::class);
+        $db      = $this->createMock(RateSetRepositoryInterface::class);
         $gateway = $this->createMock(ExternalRateSetGatewayInterface::class);
         $cache->expects(self::once())->method('get')->willThrowException(new RateSetNotFound());
         $cache->expects(self::never())->method('put');
@@ -113,6 +125,6 @@ final class RateSetResolverTest extends TestCase
             $db->expects(self::once())->method('save')->willThrowException($error);
         }
         $this->expectExceptionObject($error);
-        new RateSetResolver($cache, $db, $gateway, new NullLogger())->resolve(MoscowCalendar::date('2026-10-26'));
+        new RateSetResolver($cache, $db, $gateway, new NullLogger())->resolve(DatePointParser::parse('2026-10-26'));
     }
 }

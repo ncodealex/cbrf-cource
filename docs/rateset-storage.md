@@ -7,10 +7,10 @@
 Внедрите `App\Cources\Application\Service\RateSetResolver` через конструктор:
 
 ```php
-$rateSet = $resolver->resolve(MoscowCalendar::date('2026-10-26'));
+$rateSet = $resolver->resolve(DatePointParser::parse('2026-10-26'));
 ```
 
-`requestDate` — календарная дата: учитывается `Y-m-d` переданного DatePoint, время отбрасывается. Для текущей даты используйте `MoscowCalendar::dateOf($clock->now())`: календарь переводит момент времени в `Europe/Moscow`.
+`requestDate` — календарная дата: учитывается `Y-m-d` переданного DatePoint, время отбрасывается. Для текущей даты используйте `DatePointParser::dateOf($clock->now())`: календарь переводит момент времени в `Europe/Moscow`.
 
 Resolver сначала читает Redis, затем PostgreSQL. Только отсутствие подтверждённой связи в БД приводит к запросу ЦБ. Ответ сохраняется в БД, после успешного сохранения заполняется Redis. Все источники возвращают существующий доменный `RateSet`.
 

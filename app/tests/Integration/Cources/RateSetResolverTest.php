@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Cources;
 
 use App\Cources\Application\Service\RateSetResolver;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Cache\RedisRateSetCache;
 use App\Cources\Infrastructure\Cbr\CbrRateSetGateway;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
@@ -40,7 +40,7 @@ final class RateSetResolverTest extends RateSetStorageTestCase
     public function testFullResolutionAndSubsequentHits(bool $available): void
     {
         $redis      = $available ? self::getContainer()->get(\Redis::class) : new \Redis();
-        $date       = MoscowCalendar::date('2800-01-01')->modify('+' . random_int(0, 100000) . ' days');
+        $date       = DatePointParser::parse('2800-01-01')->modify('+' . random_int(0, 100000) . ' days');
         $key        = 'rateset:date:' . $date->format('Y-m-d');
         $client     = new MockHttpClient(new MockResponse(CbrFixtures::load('daily_2026-10-24.xml')),
             'https://www.cbr.ru');

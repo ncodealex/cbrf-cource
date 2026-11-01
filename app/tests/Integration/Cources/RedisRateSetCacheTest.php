@@ -6,7 +6,7 @@ namespace App\Tests\Integration\Cources;
 
 use App\Cources\Application\Exception\RateSetCacheFailure;
 use App\Cources\Application\Exception\RateSetNotFound;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Cache\RedisRateSetCache;
 use App\Cources\Infrastructure\Mapping\RateSetMapper;
 use App\Tests\Unit\Cources\Domain\RateSets;
@@ -17,7 +17,7 @@ final class RedisRateSetCacheTest extends KernelTestCase
     public function testPutGetTtlAndExpiration(): void
     {
         $redis = self::getContainer()->get(\Redis::class);
-        $date = MoscowCalendar::date('2100-01-01')->modify('+'.random_int(0, 100000).' days');
+        $date = DatePointParser::parse('2100-01-01')->modify('+'.random_int(0, 100000).' days');
         $key = 'rateset:date:'.$date->format('Y-m-d');
         $cache = new RedisRateSetCache($redis, new RateSetMapper(), 1);
         try {
@@ -39,7 +39,7 @@ final class RedisRateSetCacheTest extends KernelTestCase
     public function testCorruptedPayload(): void
     {
         $redis = self::getContainer()->get(\Redis::class);
-        $date = MoscowCalendar::date('2400-01-01')->modify('+'.random_int(0, 100000).' days');
+        $date = DatePointParser::parse('2400-01-01')->modify('+'.random_int(0, 100000).' days');
         $key = 'rateset:date:'.$date->format('Y-m-d');
         try {
             $redis->set($key, '{', ['ex' => 10]);
@@ -53,7 +53,7 @@ final class RedisRateSetCacheTest extends KernelTestCase
     public function testWrongRedisValueTypeIsFailure(): void
     {
         $redis = self::getContainer()->get(\Redis::class);
-        $date = MoscowCalendar::date('2500-01-01')->modify('+'.random_int(0, 100000).' days');
+        $date = DatePointParser::parse('2500-01-01')->modify('+'.random_int(0, 100000).' days');
         $key = 'rateset:date:'.$date->format('Y-m-d');
         try {
             $redis->lPush($key, 'ошибочное значение');
@@ -69,6 +69,6 @@ final class RedisRateSetCacheTest extends KernelTestCase
     {
         $redis = new \Redis();
         $this->expectException(RateSetCacheFailure::class);
-        new RedisRateSetCache($redis, new RateSetMapper(), 60)->get(MoscowCalendar::date('2026-10-26'));
+        new RedisRateSetCache($redis, new RateSetMapper(), 60)->get(DatePointParser::parse('2026-10-26'));
     }
 }

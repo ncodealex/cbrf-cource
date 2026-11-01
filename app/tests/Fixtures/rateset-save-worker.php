@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Cources\Application\Exception\RateSetConflict;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Mapping\RateSetMapper;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
 use App\Tests\Unit\Cources\Domain\RateSets;
@@ -28,7 +28,7 @@ try {
         'date' => RateSets::friday(),
         default => throw new InvalidArgumentException('Неизвестный сценарий'),
     };
-    new DoctrineRateSetRepository($connection, new RateSetMapper())->save(MoscowCalendar::date($input['requested']), $set);
+    new DoctrineRateSetRepository($connection, new RateSetMapper())->save(DatePointParser::parse($input['requested']), $set);
     $connection->close();
     exit(0);
 } catch (RateSetConflict) {

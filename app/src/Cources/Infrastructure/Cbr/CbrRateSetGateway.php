@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Cources\Infrastructure\Cbr;
 
 use App\Cources\Application\Contract\ExternalRateSetGatewayInterface;
-use App\Cources\Application\Exception\CbrGatewayException;
-use App\Cources\Application\Exception\CbrInvalidResponse;
-use App\Cources\Application\Exception\CbrRateLimited;
-use App\Cources\Application\Exception\CbrUnavailable;
 use App\Cources\Domain\Entity\RateSet;
+use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
+use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
+use App\Cources\Infrastructure\Cbr\Exception\CbrRateLimited;
+use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
 use App\Cources\Infrastructure\Cbr\Response\RateSetResponse;
 use Psr\Log\LoggerInterface;
@@ -21,6 +21,8 @@ use Symfony\Component\Serializer\Exception\ExceptionInterface as SerializerExcep
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use const LIBXML_NOBLANKS;
+use const LIBXML_NONET;
 
 #[AsAlias(ExternalRateSetGatewayInterface::class)]
 final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterface
@@ -77,7 +79,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         try {
             $response = $this->serializer->deserialize($body, RateSetResponse::class, 'xml', [
                 XmlEncoder::TYPE_CAST_ATTRIBUTES => false,
-                XmlEncoder::LOAD_OPTIONS         => \LIBXML_NONET | \LIBXML_NOBLANKS,
+                XmlEncoder::LOAD_OPTIONS         => LIBXML_NONET | LIBXML_NOBLANKS,
             ]);
         } catch (SerializerException $e) {
             throw new CbrInvalidResponse('Некорректная структура ответа Банка России', 0, $e);

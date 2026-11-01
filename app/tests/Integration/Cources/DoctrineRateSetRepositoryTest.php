@@ -6,7 +6,7 @@ namespace App\Tests\Integration\Cources;
 
 use App\Cources\Application\Exception\RateSetConflict;
 use App\Cources\Application\Exception\RateSetNotFound;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -17,12 +17,12 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
     public function testFirstSaveAndIdempotency(): void
     {
         $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
-        $date = MoscowCalendar::date('2026-10-26');
+        $date = DatePointParser::parse('2026-10-26');
         $set = RateSets::saturday();
         $repository->save($date, $set);
         $createdAt = $this->connection->fetchOne('SELECT created_at FROM rate_sets');
         $repository->save($date, $set);
-        $repository->save(MoscowCalendar::date('2026-10-25'), $set);
+        $repository->save(DatePointParser::parse('2026-10-25'), $set);
         self::assertSame($set->contentHash(), $repository->get($date)->contentHash());
         self::assertSame(1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
         self::assertSame(2, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
@@ -33,15 +33,15 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
     public function testDifferentContentConflicts(): void
     {
         $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
-        $repository->save(MoscowCalendar::date('2026-10-26'), RateSets::saturday());
+        $repository->save(DatePointParser::parse('2026-10-26'), RateSets::saturday());
         $this->expectException(RateSetConflict::class);
-        $repository->save(MoscowCalendar::date('2026-10-27'), RateSets::create('2026-10-24', [['USD', 'R01235', 1, '1.0000']]));
+        $repository->save(DatePointParser::parse('2026-10-27'), RateSets::create('2026-10-24', [['USD', 'R01235', 1, '1.0000']]));
     }
 
     public function testMappingConflictRollsBackNewSet(): void
     {
         $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
-        $date = MoscowCalendar::date('2026-10-26');
+        $date = DatePointParser::parse('2026-10-26');
         $repository->save($date, RateSets::friday());
         try {
             $repository->save($date, RateSets::saturday());
@@ -56,9 +56,9 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
     public function testMissingMappingDoesNotUseNearestDate(): void
     {
         $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
-        $repository->save(MoscowCalendar::date('2026-10-24'), RateSets::saturday());
+        $repository->save(DatePointParser::parse('2026-10-24'), RateSets::saturday());
         $this->expectException(RateSetNotFound::class);
-        $repository->get(MoscowCalendar::date('2026-10-25'));
+        $repository->get(DatePointParser::parse('2026-10-25'));
     }
 
     public function testForeignKeyRejectsMissingSet(): void
@@ -89,7 +89,7 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
     {
         $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
         $this->connection->beginTransaction();
-        $repository->save(MoscowCalendar::date('2026-10-26'), RateSets::saturday());
+        $repository->save(DatePointParser::parse('2026-10-26'), RateSets::saturday());
         $process = new Process([\PHP_BINARY, \dirname(__DIR__, 2).'/Fixtures/rateset-save-worker.php']);
         $process->setInput(json_encode([
             'params' => $this->connection->getParams(), 'schema' => $this->schema,
@@ -120,7 +120,7 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
             self::assertSame($conflict ? 2 : 0, $process->getExitCode(), $process->getErrorOutput());
             self::assertSame(1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
             self::assertSame(!$conflict && '2026-10-27' === $requested ? 2 : 1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
-            self::assertSame(RateSets::saturday()->contentHash(), $repository->get(MoscowCalendar::date('2026-10-26'))->contentHash());
+            self::assertSame(RateSets::saturday()->contentHash(), $repository->get(DatePointParser::parse('2026-10-26'))->contentHash());
         } finally {
             if ($this->connection->isTransactionActive()) {
                 $this->connection->rollBack();

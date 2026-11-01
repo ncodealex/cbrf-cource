@@ -58,7 +58,7 @@ deptrac:
         -   name: Presentation
             collectors:
                 -   type: directory
-                    value: src/(Modules|Support)/[^/]+/(Presentation|Endpoints)/.*
+                    value: src/(?:Cources/Endpoints|(?:Modules|Support)/[^/]+/(?:Presentation|Endpoints))/.*
 
         # ============================================
         # ИНТЕГРАЦИИ (Integration/*) — отдельные слои: общий слой Domain

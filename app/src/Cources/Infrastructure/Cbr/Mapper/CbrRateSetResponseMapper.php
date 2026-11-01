@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Cources\Infrastructure\Cbr\Mapper;
 
-use App\Cources\Application\Exception\CbrInvalidResponse;
 use App\Cources\Domain\Entity\RateItem;
 use App\Cources\Domain\Entity\RateSet;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
 use App\Cources\Infrastructure\Cbr\Response\RateItemResponse;
 use App\Cources\Infrastructure\Cbr\Response\RateSetResponse;
 use BcMath\Number;
+use InvalidArgumentException;
+use ValueError;
+use const FILTER_VALIDATE_INT;
 
 final readonly class CbrRateSetResponseMapper
 {
@@ -19,14 +22,14 @@ final readonly class CbrRateSetResponseMapper
     {
         try {
             $rawDate = trim($response->effectiveDate);
-            $date    = MoscowCalendar::date($rawDate, str_contains($rawDate, '/') ? 'd/m/Y' : 'd.m.Y');
+            $date    = DatePointParser::parse($rawDate);
             $items   = [];
             foreach ($response->items as $item) {
                 $items[] = $this->mapItem($item);
             }
 
             return new RateSet($date, $items);
-        } catch (\InvalidArgumentException|\ValueError $e) {
+        } catch (InvalidArgumentException|ValueError $e) {
             throw new CbrInvalidResponse('Некорректные данные Банка России: ' . $e->getMessage(), 0, $e);
         }
     }
@@ -39,7 +42,7 @@ final readonly class CbrRateSetResponseMapper
         $sourceId = trim($item->sourceId);
         $numCode  = null === $item->numCode ? '' : trim($item->numCode);
         if (1 !== preg_match('/^[A-Z]{3}$/D', $code)
-            || false === filter_var($nominal, \FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+            || false === filter_var($nominal, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
             || 1 !== preg_match('/^[0-9]+(?:\.[0-9]+)?$/D', $value)
             || !is_numeric($value)
             || '' === $sourceId

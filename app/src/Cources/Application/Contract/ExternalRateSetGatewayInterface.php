@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Cources\Application\Contract;
 
-use App\Cources\Application\Exception\CbrGatewayException;
 use App\Cources\Domain\Entity\RateSet;
+use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
 use Symfony\Component\Clock\DatePoint;
 
 /**

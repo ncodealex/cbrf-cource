@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Infrastructure\Cbr;
 
-use App\Cources\Application\Exception\CbrInvalidResponse;
-use App\Cources\Application\Exception\CbrRateLimited;
-use App\Cources\Application\Exception\CbrUnavailable;
-use App\Cources\Domain\MoscowCalendar;
+use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Cbr\CbrRateSetGateway;
+use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
+use App\Cources\Infrastructure\Cbr\Exception\CbrRateLimited;
+use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
 use App\Tests\Fixtures\Cbr\CbrFixtures;
 use App\Tests\Fixtures\Cbr\CbrSerializer;
+use Generator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -20,6 +21,7 @@ use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Throwable;
 
 final class CbrRateSetGatewayTest extends TestCase
 {
@@ -65,7 +67,7 @@ final class CbrRateSetGatewayTest extends TestCase
         ];
     }
 
-    /** @return iterable<string, array{int, class-string<\Throwable>}> */
+    /** @return iterable<string, array{int, class-string<Throwable>}> */
     public static function statuses(): iterable
     {
         yield '429' => [429, CbrRateLimited::class];
@@ -82,7 +84,7 @@ final class CbrRateSetGatewayTest extends TestCase
 
             return new MockResponse(CbrFixtures::load('daily_2026-10-24.xml'));
         }, 'https://www.cbr.ru');
-        $set    = $this->createGateway($client)->fetch(MoscowCalendar::date('2026-10-26'));
+        $set    = $this->createGateway($client)->fetch(DatePointParser::parse('2026-10-26'));
         self::assertSame('2026-10-24', $set->date());
         self::assertSame('Europe/Moscow', $set->effectiveDate->getTimezone()->getName());
         self::assertSame('81.4500', (string)$set->items['USD']->value);
@@ -138,7 +140,7 @@ final class CbrRateSetGatewayTest extends TestCase
         $this->gateway(new MockResponse($body))->fetchLatest();
     }
 
-    /** @param class-string<\Throwable> $exception */
+    /** @param class-string<Throwable> $exception */
     #[DataProvider('statuses')]
     public function testHttpError(int $status, string $exception): void
     {
@@ -154,7 +156,7 @@ final class CbrRateSetGatewayTest extends TestCase
 
     public function testTimeoutDuringReading(): void
     {
-        $body = (static function (): \Generator {
+        $body = (static function (): Generator {
             yield '';
         })();
         try {

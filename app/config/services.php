@@ -13,63 +13,67 @@ use Symfony\Component\Clock\Clock;
 return [
     'parameters' => [
         'app.redis.connection_options' => [
-            'lazy' => true,
-            'timeout' => 1.0,
+            'lazy'         => true,
+            'timeout'      => 1.0,
             'read_timeout' => 1.0,
         ],
         // Три probe по 2s: readiness < 7s с учётом завершения процессов.
-        'app.health.probe_timeout' => 2.0,
+        'app.health.probe_timeout'     => 2.0,
     ],
-    'services' => [
+    'services'   => [
         '_defaults' => [
-            'autowire' => true,
+            'autowire'      => true,
             'autoconfigure' => true,
         ],
 
         'App\\' => [
             'resource' => '../src/',
-            'exclude' => [
+            'exclude'  => [
                 '../src/Kernel.php',
                 '../src/Cources/Domain/',
                 '../src/Cources/Infrastructure/Cbr/Response/',
                 '../src/Cources/Application/Exception/',
+                '../src/Cources/Application/GetExchangeRate/GetExchangeRateQuery.php',
+                '../src/Cources/Application/GetExchangeRate/GetExchangeRateResult.php',
                 '../src/Cources/Infrastructure/Mapping/InvalidRateSetPayload.php',
                 '../src/Modules/*/Domain/',
                 '../src/Integration/*/Domain/',
             ],
         ],
 
+        App\Cources\Domain\ExchangeRateCalculator::class => [],
+
         // Штатный ClockInterface от FrameworkBundle, зафиксированный в часовой зоне приложения.
         // Clock оставляем обёрткой над глобальными часами для поддержки MockClock в тестах.
-        'app.timezone' => [
-            'class' => DateTimeZone::class,
+        'app.timezone'                                   => [
+            'class'     => DateTimeZone::class,
             'arguments' => ['%env(TZ)%'],
         ],
-        'clock' => [
-            'class' => Clock::class,
+        'clock'                                          => [
+            'class'     => Clock::class,
             'arguments' => [null, '@app.timezone'],
         ],
 
         // Redis backend для Symfony Cache; probe использует те же DSN/options.
         // lazy — подключение устанавливается при первом обращении, а не при сборке сервиса.
-        Redis::class => [
-            'class' => Redis::class,
-            'factory' => [RedisAdapter::class, 'createConnection'],
+        Redis::class                                     => [
+            'class'     => Redis::class,
+            'factory'   => [RedisAdapter::class, 'createConnection'],
             'arguments' => [
                 '%env(REDIS_URL)%',
                 '%app.redis.connection_options%',
             ],
         ],
     ],
-    'when@test' => [
+    'when@test'  => [
         'services' => [
             'test.rateset_resolver' => [
-                'alias' => App\Cources\Application\Service\RateSetResolver::class,
+                'alias'  => App\Cources\Application\Service\RateSetResolver::class,
                 'public' => true,
             ],
         ],
     ],
-    'when@prod' => [
+    'when@prod'  => [
         'parameters' => [
             '.container.dumper.inline_factories' => true,
         ],

@@ -305,7 +305,7 @@ final class RateCalculator
 
 Правила:
 
-1. `RateCalculator` вычисляет текущий и предыдущий курсы независимо, затем вычитает их без округления.
+1. `ExchangeRateCalculator` вычисляет текущий и предыдущий курсы независимо, затем вычитает их без округления.
 2. `ExchangeRate` хранит полученные `Number` как результат. Прямые курсы сохраняют масштаб опубликованной котировки;
    деление для кросс-курсов выполняется с 30 знаками после запятой.
 3. Если конкретному интерфейсу нужно меньше знаков, форматирование выполняется при выводе.
@@ -1299,7 +1299,8 @@ docker compose stop redis && bin/console app:exchange-rate:get USD --date=2026-1
 
 Каждый шаг завершается зелёными `make test` и `make qa`.
 
-1. **Домен и точность:** `CurrencyCode`, `RateItem`, `RateSet`, `RateCalculator` + unit-тесты §17.1. Deptrac: слой
+1. **Домен и точность:** `CurrencyCode`, `RateItem`, `RateSet`, `ExchangeRateCalculator` + unit-тесты §17.1. Deptrac:
+   слой
    `Endpoints`.
 2. **Источник:** `DailyXmlParser`, `HttpCbrGateway`, фикстуры, `CbrFixtureResponder`.
 3. **Хранилище:** миграция §5, DBAL-репозитории, `persist` (§5.4), inference.

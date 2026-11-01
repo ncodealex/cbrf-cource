@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Infrastructure\Cbr;
 
-use App\Cources\Application\Exception\CbrInvalidResponse;
+use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
 use App\Cources\Infrastructure\Cbr\Response\RateItemResponse;
 use App\Cources\Infrastructure\Cbr\Response\RateSetResponse;
@@ -17,6 +17,26 @@ use Symfony\Component\Serializer\Encoder\XmlEncoder;
 
 final class CbrRateSetResponseMapperTest extends TestCase
 {
+    #[DataProvider('effectiveDates')]
+    public function testMapsSupportedDateFormats(string $value): void
+    {
+        $response = new RateSetResponse($value, [
+            new RateItemResponse('R01235', 'USD', '1', '81,4500', 'Доллар США', '840'),
+        ]);
+
+        $set = new CbrRateSetResponseMapper()->map($response);
+
+        self::assertSame('2026-07-03 00:00:00 Europe/Moscow', $set->effectiveDate->format('Y-m-d H:i:s e'));
+    }
+
+    /** @return iterable<array{string}> */
+    public static function effectiveDates(): iterable
+    {
+        foreach (['03.07.2026', '3.07.2026', '3.7.2026', '03/07/2026', '3/07/2026', '3/7/2026', ' 3.7.2026 ', '2026-07-03', '3-7-2026'] as $value) {
+            yield [$value];
+        }
+    }
+
     /** @return iterable<string, array{RateSetResponse}> */
     public static function invalidResponses(): iterable
     {
@@ -59,7 +79,7 @@ final class CbrRateSetResponseMapperTest extends TestCase
 
     public function testPreservesNumericStringsAndTrailingZeros(): void
     {
-        $xml = '<ValCurs Date="24.10.2026"><Valute ID="0001"><NumCode>036</NumCode><CharCode>AUD</CharCode><Nominal>100</Nominal><Name>Австралийских долларов</Name><Value>8500,000000</Value></Valute></ValCurs>';
+        $xml      = '<ValCurs Date="24.10.2026"><Valute ID="0001"><NumCode>036</NumCode><CharCode>AUD</CharCode><Nominal>100</Nominal><Name>Австралийских долларов</Name><Value>8500,000000</Value></Valute></ValCurs>';
         $response = CbrSerializer::create()->deserialize($xml, RateSetResponse::class, 'xml',
             [XmlEncoder::TYPE_CAST_ATTRIBUTES => false]);
         self::assertCount(1, $response->items);
