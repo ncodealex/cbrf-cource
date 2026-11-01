@@ -10,6 +10,7 @@ use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\Process\Process;
 
 final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
@@ -73,6 +74,36 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
         $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
         $repository->save($set->effectiveDate, $set);
         self::assertSame($set->contentHash(), $repository->get($set->effectiveDate)->contentHash());
+    }
+
+    public function testDeleteCascadesToAllDatesRelatedToSet(): void
+    {
+        $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
+        $first = DatePointParser::parse('2026-10-25');
+        $second = DatePointParser::parse('2026-10-26');
+        $repository->save($first, RateSets::saturday());
+        $repository->save($second, RateSets::saturday());
+
+        self::assertSame(
+            ['2026-10-25', '2026-10-26'],
+            array_map(static fn(DatePoint $date): string => $date->format('Y-m-d'), $repository->relatedRequestDates($second)),
+        );
+        $repository->delete($second);
+
+        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
+        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
+    }
+
+    public function testDeleteRemovesOrphanedSet(): void
+    {
+        $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
+        $date = DatePointParser::parse('2026-10-26');
+        $repository->save($date, RateSets::saturday());
+
+        $repository->delete($date);
+
+        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
+        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
     }
 
     /** @return iterable<string, array{string, string, bool}> */

@@ -24,4 +24,11 @@ interface RateSetCacheInterface
      * @throws RateSetCacheFailure
      */
     public function put(DatePoint $requestDate, RateSet $set): void;
+
+    /**
+     * Удалить кеш набора для одной календарной даты.
+     *
+     * @throws RateSetCacheFailure
+     */
+    public function delete(DatePoint ...$requestDates): void;
 }

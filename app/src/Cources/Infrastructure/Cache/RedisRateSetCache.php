@@ -10,6 +10,7 @@ use App\Cources\Application\Exception\RateSetNotFound;
 use App\Cources\Domain\Entity\RateSet;
 use App\Cources\Infrastructure\Mapping\InvalidRateSetPayload;
 use App\Cources\Infrastructure\Mapping\RateSetMapper;
+use App\Shared\Domain\DateFormatInterface;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -65,8 +66,21 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         }
     }
 
+    public function delete(DatePoint ...$requestDates): void
+    {
+        if ([] === $requestDates) {
+            return;
+        }
+
+        try {
+            $this->redis->del(array_map($this->key(...), $requestDates));
+        } catch (\RedisException $e) {
+            throw new RateSetCacheFailure('Не удалось удалить набор курсов из кеша', 0, $e);
+        }
+    }
+
     private function key(DatePoint $date): string
     {
-        return 'rateset:date:'.$date->format('Y-m-d');
+        return 'rateset:date:'.$date->format(DateFormatInterface::ISO);
     }
 }

@@ -65,6 +65,20 @@ final class RedisRateSetCacheTest extends TestCase
         new RedisRateSetCache($redis, new RateSetMapper(), 60)->put(DatePointParser::parse('2026-10-26'), RateSets::saturday());
     }
 
+    public function testDeletesRequestedDatesWithSingleRedisCommand(): void
+    {
+        $redis = $this->createMock(\Redis::class);
+        $redis->expects(self::once())->method('del')->with([
+            'rateset:date:1994-02-01',
+            'rateset:date:1994-02-02',
+        ])->willReturn(2);
+
+        new RedisRateSetCache($redis, new RateSetMapper(), 60)->delete(
+            DatePointParser::parse('1994-02-01'),
+            DatePointParser::parse('1994-02-02'),
+        );
+    }
+
     public function testRejectsNonPositiveTtl(): void
     {
         $this->expectException(\InvalidArgumentException::class);

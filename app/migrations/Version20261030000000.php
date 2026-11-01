@@ -19,7 +19,7 @@ final class Version20261030000000 extends AbstractMigration
     {
         $this->abortIf(!$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform, 'Для хранения курсов требуется PostgreSQL');
         $this->addSql('CREATE TABLE rate_sets (effective_date DATE PRIMARY KEY, rates JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
-        $this->addSql('CREATE TABLE rate_request_dates (requested_date DATE PRIMARY KEY, effective_date DATE NOT NULL REFERENCES rate_sets(effective_date))');
+        $this->addSql('CREATE TABLE rate_request_dates (requested_date DATE PRIMARY KEY, effective_date DATE NOT NULL REFERENCES rate_sets(effective_date) ON DELETE CASCADE)');
     }
 
     public function down(Schema $schema): void

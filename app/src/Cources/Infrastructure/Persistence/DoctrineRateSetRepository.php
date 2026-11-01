@@ -9,6 +9,7 @@ use App\Cources\Application\Exception\RateSetConflict;
 use App\Cources\Application\Exception\RateSetNotFound;
 use App\Cources\Domain\Entity\RateSet;
 use App\Cources\Infrastructure\Mapping\RateSetMapper;
+use App\Shared\Domain\DatePointParser;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
@@ -127,5 +128,43 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
                 }
             }
         });
+    }
+
+    public function relatedRequestDates(DatePoint $requestDate): array
+    {
+        $dates = $this->connection->fetchFirstColumn(
+            <<<'SQL'
+                SELECT related.requested_date
+                FROM rate_request_dates target
+                JOIN rate_request_dates related ON related.effective_date = target.effective_date
+                WHERE target.requested_date = :date
+                ORDER BY related.requested_date
+                SQL,
+            ['date' => $requestDate->format('Y-m-d')],
+        );
+
+        return array_map(
+            static function (mixed $date): DatePoint {
+                if (!\is_string($date)) {
+                    throw new \UnexpectedValueException('PostgreSQL вернул некорректную календарную дату');
+                }
+
+                return DatePointParser::parse($date);
+            },
+            $dates,
+        );
+    }
+
+    public function delete(DatePoint $requestDate): void
+    {
+        $this->connection->executeStatement(
+            <<<'SQL'
+                DELETE FROM rate_sets s
+                USING rate_request_dates target
+                WHERE target.requested_date = :date
+                  AND s.effective_date = target.effective_date
+                SQL,
+            ['date' => $requestDate->format('Y-m-d')],
+        );
     }
 }
