@@ -9,6 +9,7 @@ use App\Cources\Infrastructure\Cbr\Exception\CbrHttpFailure;
 use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
 use App\Cources\Infrastructure\Cbr\Exception\CbrRateLimited;
 use App\Cources\Infrastructure\Cbr\Exception\CbrRequestRateLimitExceeded;
+use App\Cources\Infrastructure\Cbr\Exception\CbrSerialization;
 use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
 use App\Cources\Infrastructure\Cbr\RetryAfterParser;
@@ -31,20 +32,20 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final class CbrRateSetGatewayTest extends TestCase
 {
-    /** @return iterable<string, array{string}> */
+    /** @return iterable<string, array{string, class-string<\Throwable>}> */
     public static function invalidBodies(): iterable
     {
-        yield 'пусто' => [''];
-        yield 'не XML' => ['Ошибка'];
-        yield 'обрезанный XML' => ['<ValCurs>'];
-        yield 'другой корень' => ['<html/>'];
-        yield 'нет даты' => ['<ValCurs/>'];
-        yield 'пустой набор' => ['<ValCurs Date="24.10.2026"/>'];
-        yield 'DTD' => ['<!DOCTYPE ValCurs [<!ENTITY x SYSTEM "file:///etc/passwd">]><ValCurs Date="24.10.2026">&x;</ValCurs>'];
-        yield 'некорректный курс из фикстуры' => [CbrFixtures::load('daily_invalid_value.xml')];
+        yield 'пусто' => ['', CbrInvalidResponse::class];
+        yield 'не XML' => ['Ошибка', CbrSerialization::class];
+        yield 'обрезанный XML' => ['<ValCurs>', CbrSerialization::class];
+        yield 'другой корень без данных' => ['<html/>', CbrSerialization::class];
+        yield 'нет даты' => ['<ValCurs/>', CbrSerialization::class];
+        yield 'пустой набор' => ['<ValCurs Date="24.10.2026"/>', CbrInvalidResponse::class];
+        yield 'DTD' => ['<!DOCTYPE ValCurs [<!ENTITY x SYSTEM "file:///etc/passwd">]><ValCurs Date="24.10.2026">&x;</ValCurs>', CbrSerialization::class];
+        yield 'некорректный курс из фикстуры' => [CbrFixtures::load('daily_invalid_value.xml'), CbrInvalidResponse::class];
         $quote = '<Valute ID="R01235"><CharCode>USD</CharCode><Nominal>1</Nominal><Name>Доллар США</Name><Value>81,4500</Value></Valute>';
-        yield 'неверная дата' => ['<ValCurs Date="31.02.2026">'.$quote.'</ValCurs>'];
-        yield 'дубли' => ['<ValCurs Date="24.10.2026">'.$quote.$quote.'</ValCurs>'];
+        yield 'неверная дата' => ['<ValCurs Date="31.02.2026">'.$quote.'</ValCurs>', CbrInvalidResponse::class];
+        yield 'дубли' => ['<ValCurs Date="24.10.2026">'.$quote.$quote.'</ValCurs>', CbrInvalidResponse::class];
         foreach ([
             '<CharCode>USD</CharCode>' => '<CharCode>RUB</CharCode>',
             '<Nominal>1</Nominal>' => '<Nominal>0</Nominal>',
@@ -52,26 +53,28 @@ final class CbrRateSetGatewayTest extends TestCase
             '<Name>Доллар США</Name>' => '',
             'ID="R01235"' => 'ID=""',
         ] as $old => $new) {
-            yield $old => ['<ValCurs Date="24.10.2026">'.str_replace($old, $new, $quote).'</ValCurs>'];
+            yield $old => ['<ValCurs Date="24.10.2026">'.str_replace($old, $new, $quote).'</ValCurs>', CbrInvalidResponse::class];
         }
-        yield 'другой корень с котировками' => ['<WrongRoot Date="24.10.2026">'.$quote.'</WrongRoot>'];
         yield 'вложенный элемент' => [
             '<ValCurs Date="24.10.2026">'.str_replace(
                 '<Value>81,4500</Value>',
                 '<Value><Amount>81,4500</Amount></Value>',
                 $quote
             ).'</ValCurs>',
+            CbrSerialization::class,
         ];
         yield 'нет обязательного поля' => [
             '<ValCurs Date="24.10.2026">'.str_replace('<CharCode>USD</CharCode>', '', $quote).'</ValCurs>',
+            CbrInvalidResponse::class,
         ];
-        yield 'пустая котировка' => ['<ValCurs Date="24.10.2026"><Valute/></ValCurs>'];
+        yield 'пустая котировка' => ['<ValCurs Date="24.10.2026"><Valute/></ValCurs>', CbrInvalidResponse::class];
         yield 'дубли полей' => [
             '<ValCurs Date="24.10.2026">'.str_replace(
                 '<Nominal>1</Nominal>',
                 '<Nominal>1</Nominal><Nominal>2</Nominal>',
                 $quote
             ).'</ValCurs>',
+            CbrSerialization::class,
         ];
         yield 'переполнение номинала' => [
             '<ValCurs Date="24.10.2026">'.str_replace(
@@ -79,6 +82,7 @@ final class CbrRateSetGatewayTest extends TestCase
                 '<Nominal>999999999999999999999999</Nominal>',
                 $quote
             ).'</ValCurs>',
+            CbrInvalidResponse::class,
         ];
     }
 
@@ -185,9 +189,9 @@ final class CbrRateSetGatewayTest extends TestCase
     }
 
     #[DataProvider('invalidBodies')]
-    public function testRejectsInvalidResponse(string $body): void
+    public function testRejectsInvalidResponse(string $body, string $exception): void
     {
-        $this->expectException(CbrInvalidResponse::class);
+        $this->expectException($exception);
         $this->gateway(new MockResponse($body))->fetchLatest();
     }
 

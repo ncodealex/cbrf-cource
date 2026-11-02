@@ -15,6 +15,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(name: 'app:rates:import', description: 'Зарегистрировать задания импорта исторических котировок ЦБ РФ')]
@@ -22,13 +23,15 @@ final readonly class RatesImportCommand
 {
     public function __construct(
         private RatesImportPeriodFactory $factory,
-        private RatesImportHandler $handler
+        private RatesImportHandler $handler,
+        private ?RateImportProgressObserver $observer = null
     ) {
     }
 
     public function __invoke(
         SymfonyStyle $io,
         InputInterface $input,
+        OutputInterface $output,
         #[Option(description: 'Дата начала периода')]
         ?string $from = null,
         #[Option(description: 'Дата окончания периода')]
@@ -37,8 +40,17 @@ final readonly class RatesImportCommand
         ?string $days = null,
         #[Option(description: 'Подтвердить корректировку периода без вопроса')]
         bool $yes = false,
+        #[Option]
+        bool $progress = false,
+        #[Option]
+        ?int $progressInterval = null,
+        #[Option]
+        ?int $progressTimeout = null,
     ): int {
         try {
+            if ((null !== $progressInterval && $progressInterval < 1) || (null !== $progressTimeout && $progressTimeout < 0)) {
+                throw new \InvalidArgumentException('Некорректный интервал или timeout наблюдения.');
+            }
             $numberOfDays = null;
             if (null !== $days) {
                 if (!preg_match('/\A[+-]?[0-9]+\z/', $days)) {
@@ -109,7 +121,10 @@ final readonly class RatesImportCommand
             $io->definitionList([$status->label() => $result->states[$status->value]]);
         }
         $io->success('Задания зарегистрированы.');
-        $io->text('Обработка RabbitMQ будет подключена на следующем этапе.');
+        if ($progress && null !== $this->observer) {
+            return $this->observer->observe($period, $output, $progressInterval, $progressTimeout);
+        }
+        $io->text('Обработка выполняется Dispatcher и Messenger Worker.');
 
         return Command::SUCCESS;
     }

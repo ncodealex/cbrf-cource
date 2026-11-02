@@ -7,11 +7,13 @@ namespace App\Cources\Application\UseCase\RatesImport;
 use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
 use App\Cources\Application\Import\RatesImportPeriod;
 use App\Shared\Domain\DateFormatInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\Clock\DatePoint;
 
 final readonly class RatesImportHandler
 {
-    public function __construct(private RateImportJobRepositoryInterface $repository)
+    public function __construct(private RateImportJobRepositoryInterface $repository, private LoggerInterface $logger = new NullLogger())
     {
     }
 
@@ -29,6 +31,8 @@ final readonly class RatesImportHandler
             }
         }
         $inserted = $this->repository->register($missing);
+
+        $this->logger->info('Регистрация заданий импорта.', ['created' => \count($inserted), 'confirmed' => \count($confirmed), 'repaired_done' => $requeuedDone]);
 
         return new RatesImportResult(
             $period,

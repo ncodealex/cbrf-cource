@@ -30,6 +30,11 @@ return [
         'messenger' => [
             'failure_transport' => 'failed',
             'transports' => [
+                'rates_import' => [
+                    'dsn' => '%env(MESSENGER_TRANSPORT_DSN)%',
+                    'options' => [...$connectionOptions, 'exchange' => ['name' => 'rates_import', 'type' => 'direct', 'flags' => 2, 'default_publish_routing_key' => 'rates_import'], 'queues' => ['rates_import' => ['flags' => 2, 'binding_keys' => ['rates_import']]]],
+                    'retry_strategy' => ['max_retries' => 3, 'delay' => 1000, 'multiplier' => 3, 'max_delay' => 60000],
+                ],
                 'async' => [
                     'dsn' => '%env(MESSENGER_TRANSPORT_DSN)%',
                     'options' => [
@@ -49,11 +54,12 @@ return [
                     'options' => [
                         ...$connectionOptions,
                         'exchange' => ['name' => 'failed', 'type' => 'direct', 'default_publish_routing_key' => 'failed'],
-                        'queues' => ['failed' => ['binding_keys' => ['failed']]],
+                        // Messenger сохраняет routing key исходного AMQP-сообщения при отправке в failure transport.
+                        'queues' => ['failed' => ['binding_keys' => ['failed', 'messages', 'rates_import']]],
                     ],
                 ],
             ],
-            'routing' => [],
+            'routing' => [App\Cources\Application\Message\ProcessRateImportMessage::class => 'rates_import'],
         ],
     ],
 ];

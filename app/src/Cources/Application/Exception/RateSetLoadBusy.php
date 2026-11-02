@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Cources\Application\Exception;
 
-use App\Support\Retry\Application\RetryableFailure;
+use App\Support\Retry\Application\AdmissionFailure;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
 #[Exclude]
-final class RateSetLoadBusy extends \RuntimeException implements RetryableFailure
+final class RateSetLoadBusy extends \RuntimeException implements AdmissionFailure
 {
     public function __construct(string $message = 'Набор курсов уже загружается другим исполнителем.', ?\Throwable $previous = null)
     {

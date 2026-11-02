@@ -28,6 +28,7 @@ services:
             MESSENGER_TRANSPORT_DSN: amqp://rabbitmq:5672/%2f
             RABBITMQ_USER: test
             RABBITMQ_PASSWORD: "test p@ss:#/%&$$word"
+            CBR_BASE_URL: http://cbr-stub:8080
             HEALTH_CHECK_RABBITMQ: 0
             XDEBUG_MODE: off
         volumes:
@@ -41,6 +42,17 @@ services:
                 condition: service_healthy
             rabbitmq:
                 condition: service_healthy
+
+    cbr-stub:
+        image: ${COMPOSE_PROJECT_NAME:-starter}-app:test
+        entrypoint: ["php", "-S", "0.0.0.0:8080", "/fixtures/stub.php"]
+        volumes:
+            - ./app/tests/Fixtures/Cbr:/fixtures:ro
+        healthcheck:
+            test: ["CMD", "php", "-r", "exit(file_get_contents('http://localhost:8080/') === false ? 1 : 0);"]
+            interval: 2s
+            timeout: 3s
+            retries: 20
 
     postgres:
         image: ${DOCKER_REGISTRY:-docker.io/library}/postgres:${POSTGRES_VERSION:-18.6}

@@ -19,6 +19,17 @@ x-app-environment: &app-environment
     RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-app}
     HEALTH_CHECK_RABBITMQ: ${HEALTH_CHECK_RABBITMQ:-0}
     CBR_BASE_URL: ${CBR_BASE_URL:-https://www.cbr.ru}
+    IMPORT_DISPATCH_BATCH_SIZE: ${IMPORT_DISPATCH_BATCH_SIZE:-20}
+    IMPORT_DISPATCH_INTERVAL_SECONDS: ${IMPORT_DISPATCH_INTERVAL_SECONDS:-2}
+    IMPORT_REDISPATCH_AFTER_SECONDS: ${IMPORT_REDISPATCH_AFTER_SECONDS:-600}
+    IMPORT_MAX_UNCLAIMED: ${IMPORT_MAX_UNCLAIMED:-20}
+    IMPORT_LEASE_SECONDS: ${IMPORT_LEASE_SECONDS:-120}
+    IMPORT_MAX_ATTEMPTS: ${IMPORT_MAX_ATTEMPTS:-5}
+    IMPORT_RETRY_INITIAL_DELAY_MS: ${IMPORT_RETRY_INITIAL_DELAY_MS:-1000}
+    IMPORT_RETRY_MAX_DELAY_MS: ${IMPORT_RETRY_MAX_DELAY_MS:-60000}
+    IMPORT_RETRY_JITTER_PERCENT: ${IMPORT_RETRY_JITTER_PERCENT:-20}
+    IMPORT_PROGRESS_INTERVAL_SECONDS: ${IMPORT_PROGRESS_INTERVAL_SECONDS:-2}
+    IMPORT_PROGRESS_TIMEOUT_SECONDS: ${IMPORT_PROGRESS_TIMEOUT_SECONDS:-0}
 
 x-app-depends-on: &app-depends-on
     postgres:
@@ -56,7 +67,7 @@ services:
     # --time-limit/--memory-limit периодически перезапускают процесс через restart policy.
     worker:
         image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
-        command: ["php", "-d", "max_execution_time=0", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=128M", "--no-interaction", "-v"]
+        command: ["php", "-d", "max_execution_time=0", "bin/console", "messenger:consume", "rates_import", "--time-limit=3600", "--memory-limit=128M", "--no-interaction", "-v"]
         init: true
         stop_signal: SIGTERM
         # Бюджет одного handler <=60s; --time-limit ограничивает жизнь worker, не handler.
@@ -67,6 +78,20 @@ services:
             app:
                 condition: service_healthy
         restart: unless-stopped
+
+    import-dispatcher:
+        image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
+        command: ["php", "bin/console", "app:rates:dispatch", "--watch", "--no-interaction"]
+        init: true
+        stop_signal: SIGTERM
+        stop_grace_period: 30s
+        restart: unless-stopped
+        environment: *app-environment
+        depends_on:
+            postgres:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
 
     postgres:
         container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-pg

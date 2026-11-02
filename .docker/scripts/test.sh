@@ -11,5 +11,5 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 ${COMPOSE_TEST} build test
-${COMPOSE_TEST} up -d --wait --wait-timeout 120 postgres redis rabbitmq
+${COMPOSE_TEST} up -d --wait --wait-timeout 120 postgres redis rabbitmq cbr-stub
 ${COMPOSE_TEST} run --rm --no-deps test "$@"

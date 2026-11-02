@@ -7,6 +7,10 @@ export TZ="${TZ:-Europe/Moscow}"
 cd /app
 rm -f /tmp/app-ready
 mkdir -p var
+if [ -n "${APP_LOG_ROOT:-}" ]; then
+    export APP_LOG_DIR="${APP_LOG_ROOT}/$(hostname)"
+    mkdir -p "$APP_LOG_DIR"
+fi
 
 # В dev app и worker используют общие vendor/var через bind mount.
 # Блокировка снимается также при ошибке или остановке контейнера.

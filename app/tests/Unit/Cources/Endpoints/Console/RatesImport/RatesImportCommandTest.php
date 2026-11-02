@@ -96,7 +96,7 @@ final class RatesImportCommandTest extends TestCase
         }
         foreach ([
             'Импорт исторических котировок ЦБ РФ', 'Регистрация', 'Текущее состояние',
-            'Задания зарегистрированы.', 'Обработка RabbitMQ будет подключена на следующем этапе.',
+            'Задания зарегистрированы.', 'Обработка выполняется Dispatcher и Messenger Worker.',
         ] as $text) {
             self::assertStringContainsString($text, $output);
         }

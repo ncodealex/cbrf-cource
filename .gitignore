@@ -17,3 +17,5 @@
 /.codex/
 /.claude/
 .DS_Store
+
+/runtime/logs/

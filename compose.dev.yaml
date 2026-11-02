@@ -2,6 +2,7 @@
 x-dev-app: &dev-app
     image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:dev
     environment:
+        APP_LOG_ROOT: /runtime/logs
         APP_ENV: dev
         APP_DEBUG: 1
         DEFAULT_URI: http://app.localhost
@@ -9,6 +10,7 @@ x-dev-app: &dev-app
         PHP_IDE_CONFIG: serverName=${XDEBUG_SERVER_NAME:-cbrf-cource}
     volumes:
         - ./app:/app
+        - ./runtime/logs:/runtime/logs
     extra_hosts:
         - "host.docker.internal:host-gateway"
 
@@ -22,6 +24,9 @@ services:
                 APP_UID: ${APP_UID:-1000}
                 APP_GID: ${APP_GID:-1000}
     worker:
+        <<: *dev-app
+
+    import-dispatcher:
         <<: *dev-app
 
     postgres:

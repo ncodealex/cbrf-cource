@@ -2,55 +2,16 @@
 
 declare(strict_types=1);
 
-/*
- * Логи пишутся только в stderr контейнера (docker compose logs).
- * dev — читаемый формат, prod — JSON уровня INFO и выше.
- */
 return [
+    'parameters' => ['env(APP_LOG_DIR)' => '%kernel.logs_dir%', 'env(APP_LOG_LEVEL)' => 'info', 'env(APP_STDERR_LOG_LEVEL)' => 'info'],
     'monolog' => [
-        'channels' => ['deprecation'],
-    ],
-    'when@dev' => [
-        'monolog' => [
-            'handlers' => [
-                'main' => [
-                    'type' => 'stream',
-                    'path' => 'php://stderr',
-                    'level' => 'debug',
-                    'channels' => ['!event', '!deprecation', '!doctrine'],
-                ],
-            ],
-        ],
-    ],
-    'when@test' => [
-        'monolog' => [
-            'handlers' => [
-                'main' => [
-                    'type' => 'fingers_crossed',
-                    'action_level' => 'error',
-                    'handler' => 'nested',
-                    'excluded_http_codes' => [404, 405],
-                    'channels' => ['!event'],
-                ],
-                'nested' => [
-                    'type' => 'stream',
-                    'path' => '%kernel.logs_dir%/%kernel.environment%.log',
-                    'level' => 'debug',
-                ],
-            ],
-        ],
-    ],
-    'when@prod' => [
-        'monolog' => [
-            'handlers' => [
-                'main' => [
-                    'type' => 'stream',
-                    'path' => 'php://stderr',
-                    'level' => 'info',
-                    'formatter' => 'monolog.formatter.json',
-                    'channels' => ['!event', '!deprecation', '!doctrine'],
-                ],
-            ],
-        ],
-    ],
+        'channels' => ['deprecation', 'import_dispatcher', 'import_worker', 'cbrf'],
+        'handlers' => [
+            'main' => ['type' => 'rotating_file', 'path' => '%env(resolve:APP_LOG_DIR)%/main.log', 'max_files' => 14, 'level' => '%env(APP_LOG_LEVEL)%', 'formatter' => 'monolog.formatter.json'],
+            'errors' => ['type' => 'rotating_file', 'path' => '%env(resolve:APP_LOG_DIR)%/error.log', 'max_files' => 30, 'level' => 'error', 'formatter' => 'monolog.formatter.json'],
+            'cbrf' => ['type' => 'rotating_file', 'path' => '%env(resolve:APP_LOG_DIR)%/cbrf.log', 'max_files' => 14, 'level' => 'debug', 'channels' => ['cbrf'], 'formatter' => 'monolog.formatter.json'],
+            'stderr' => ['type' => 'stream', 'path' => 'php://stderr', 'level' => '%env(APP_STDERR_LOG_LEVEL)%', 'formatter' => 'monolog.formatter.json'],
+        ]],
+    'when@dev' => ['parameters' => ['env(APP_LOG_LEVEL)' => 'debug', 'env(APP_STDERR_LOG_LEVEL)' => 'warning']],
+    'when@test' => ['parameters' => ['env(APP_LOG_LEVEL)' => 'error', 'env(APP_STDERR_LOG_LEVEL)' => 'error']],
 ];

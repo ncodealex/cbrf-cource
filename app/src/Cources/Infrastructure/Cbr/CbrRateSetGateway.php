@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cources\Infrastructure\Cbr;
 
 use App\Cources\Application\Contract\ExternalRateSetGatewayInterface;
+use App\Cources\Application\Import\RateImportIncident;
 use App\Cources\Domain\Entity\RateSet;
 use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
 use App\Cources\Infrastructure\Cbr\Exception\CbrHttpFailure;
@@ -42,6 +43,10 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         private CbrRateSetResponseMapper $mapper,
         private RequestRateLimiter $rateLimiter,
         private RetryAfterParser $retryAfterParser,
+        #[Autowire(service: 'monolog.logger.cbrf')]
+        private ?LoggerInterface $httpLogger = null,
+        #[Autowire('%kernel.environment%')]
+        private string $environment = 'prod',
     ) {
     }
 
@@ -73,7 +78,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
             throw new CbrRequestRateLimitExceeded($decision->retryAt);
         }
         try {
-            return $this->do($query);
+            return $this->do($query, $requestedDate);
         } catch (CbrGatewayException $e) {
             $this->logger->warning('Ошибка получения официального набора курсов ЦБ', [
                 'requested_date' => $requestedDate?->format(DateFormatInterface::ISO),
@@ -93,30 +98,72 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
      * @throws RedirectionExceptionInterface
      * @throws ServerExceptionInterface
      */
-    private function do(array $query): RateSet
+    private function do(array $query, ?DatePoint $requestedDate): RateSet
     {
+        $requestId = RateImportIncident::create();
+        $start = hrtime(true);
+        $context = ['request_id' => $requestId, 'method' => 'GET', 'endpoint' => '/scripts/XML_daily.asp', 'requested_date' => $requestedDate?->format(DateFormatInterface::ISO)];
+        $this->logHttp('info', 'cbr.request', $context);
+        $body = null;
+        $status = null;
         try {
-            $response = $this->client->request('GET', '/scripts/XML_daily.asp', ['query' => $query]);
-            $status = $response->getStatusCode();
-            if (429 === $status) {
-                $retryAt = $this->retryAfterParser->parse(1 === \count($retryAfter = $response->getHeaders(false)['retry-after'] ?? []) ? $retryAfter[0] : null);
-                $response->cancel();
-                throw new CbrRateLimited('Банк России ограничил частоту запросов', $status, nextAttempt: $retryAt);
-            }
-            if (200 !== $status) {
-                $retryAt = 503 === $status ? $this->retryAfterParser->parse(1 === \count($retryAfter = $response->getHeaders(false)['retry-after'] ?? []) ? $retryAfter[0] : null) : null;
-                $response->cancel();
-                if ($status >= 500 && $status <= 599) {
-                    throw new CbrUnavailable('Банк России вернул HTTP '.$status, $status, nextAttempt: $retryAt);
+            try {
+                $response = $this->client->request('GET', '/scripts/XML_daily.asp', ['query' => $query]);
+                $status = $response->getStatusCode();
+                $body = $response->getContent(false);
+                if (429 === $status || 503 === $status) {
+                    $retryAfter = $response->getHeaders(false)['retry-after'] ?? [];
+                    $retryAt = $this->retryAfterParser->parse(1 === \count($retryAfter) ? $retryAfter[0] : null);
+                    if (429 === $status) {
+                        throw new CbrRateLimited('Банк России ограничил частоту запросов', $status, nextAttempt: $retryAt);
+                    }
+                    throw new CbrUnavailable('Банк России вернул HTTP 503', $status, nextAttempt: $retryAt);
                 }
-                throw new CbrHttpFailure($status);
+                if (200 !== $status) {
+                    if ($status >= 500 && $status <= 599) {
+                        throw new CbrUnavailable('Банк России вернул HTTP '.$status, $status);
+                    }
+                    throw new CbrHttpFailure($status);
+                }
+            } catch (TransportExceptionInterface $e) {
+                throw new CbrUnavailable('Не удалось получить курсы Банка России', previous: $e);
             }
-            $body = $response->getContent(false);
-        } catch (TransportExceptionInterface $e) {
-            throw new CbrUnavailable('Не удалось получить курсы Банка России', previous: $e);
+            $rateSet = $this->parse($body);
+        } catch (\Throwable $e) {
+            $this->logHttp('error', 'cbr.failure', [...$context, ...$this->responseMetadata($body, $status, $start), 'exception_class' => $e::class, 'retryAt' => $e instanceof RetryableFailure ? $e->retryAt()?->format(\DATE_ATOM) : null]);
+            throw $e;
+        }
+        $this->logHttp('info', 'cbr.response', [...$context, ...$this->responseMetadata($body, $status, $start), 'effective_date' => $rateSet->date()]);
+
+        return $rateSet;
+    }
+
+    /** @return array<string, mixed> */
+    private function responseMetadata(?string $body, ?int $status, int $start): array
+    {
+        $metadata = ['http_status' => $status, 'duration_ms' => (hrtime(true) - $start) / 1000000, 'response_bytes' => null === $body ? 0 : \strlen($body)];
+        if (null !== $body) {
+            $metadata['sha256'] = hash('sha256', $body);
+            if ('dev' === $this->environment) {
+                $metadata['xml'] = $body;
+                if (1 !== preg_match('//u', $body)) {
+                    // JSON требует UTF-8; оригинальные байты сохраняются без потерь отдельно.
+                    $metadata['xml'] = @iconv('Windows-1251', 'UTF-8', $body) ?: $body;
+                    $metadata['xml_base64'] = base64_encode($body);
+                }
+            }
         }
 
-        return $this->parse($body);
+        return $metadata;
+    }
+
+    /** @param array<string, mixed> $context */
+    private function logHttp(string $level, string $event, array $context): void
+    {
+        try {
+            $this->httpLogger?->log($level, $event, $context);
+        } catch (\Throwable) { /* Ошибка журнала не изменяет результат внешней операции. */
+        }
     }
 
     private function parse(string $body): RateSet
