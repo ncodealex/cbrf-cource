@@ -8,6 +8,7 @@ use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
 use App\Cources\Application\Exception\GatewayNotSupportRateSetDateInterface;
 use App\Cources\Application\Exception\InvalidRatesImportPeriod;
 use App\Cources\Application\Import\RatesImportPeriod;
+use App\Cources\Application\Import\RatesImportPeriodResolution;
 use App\Shared\Domain\DatePointParser;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Clock\DatePoint;
@@ -20,7 +21,7 @@ final readonly class RatesImportPeriodFactory
     ) {
     }
 
-    public function create(?DatePoint $from, ?DatePoint $to, ?int $days): RatesImportPeriod
+    public function create(?DatePoint $from, ?DatePoint $to, ?int $days): RatesImportPeriodResolution
     {
         if (null !== $days && $days <= 0) {
             throw new InvalidRatesImportPeriod('Число календарных дней должно быть положительным.');
@@ -29,42 +30,48 @@ final readonly class RatesImportPeriodFactory
             || (null === $days && ((null === $from) !== (null === $to)))) {
             throw new InvalidRatesImportPeriod('Укажите обе границы периода либо число дней с не более чем одной границей.');
         }
-
-        $yesterday = DatePointParser::dateOf($this->clock->now())->modify('-1 day');
+        $today = DatePointParser::dateOf($this->clock->now());
+        $minimum = DatePointParser::dateOf($this->datePolicy->minRequestDate());
         $from = null === $from ? null : DatePointParser::dateOf($from);
         $to = null === $to ? null : DatePointParser::dateOf($to);
-
-        if ((null !== $from && $from > $yesterday) || (null !== $to && $to > $yesterday)) {
-            throw new InvalidRatesImportPeriod('Границы периода должны быть не позднее вчерашнего дня по Москве.');
-        }
-
-        // Верхняя граница длины защищает календарную арифметику от переполнения.
-        // Фактическую доступность дат определяет политика внешнего источника.
-        $maxDays = (int) DatePointParser::parse('0001-01-01')->diff($to ?? $yesterday)->days + 1;
-        if (null !== $days && $days > $maxDays) {
-            throw new InvalidRatesImportPeriod('Число дней превышает допустимую длину календарного периода.');
-        }
-
         if (null === $from && null === $to) {
-            $to = $yesterday;
+            $to = $today->modify('-1 day');
             $days ??= 180;
         }
-        if (null !== $days) {
-            $offset = $days - 1;
-            if (null !== $from) {
-                $to = $from->modify(\sprintf('+%d days', $offset));
-            } else {
-                $from = $to->modify(\sprintf('-%d days', $offset));
-            }
+        $requestedFrom = $from;
+        $requestedTo = $to;
+        if (null !== $from && null !== $to && $from > $to) {
+            throw new InvalidRatesImportPeriod('Дата начала периода не может быть позже даты окончания.');
         }
-        if (null === $from || null === $to) {
-            throw new InvalidRatesImportPeriod('Не удалось определить границы периода.');
+        if ($minimum > $today) {
+            throw new InvalidRatesImportPeriod('У источника нет доступных дат для импорта.');
         }
 
-        $period = new RatesImportPeriod($from, $to);
-        if ($period->to > $yesterday) {
-            throw new InvalidRatesImportPeriod('Дата окончания периода должна быть не позднее вчерашнего дня по Москве.');
+        $fromAdjusted = false;
+        $toAdjusted = false;
+        if (null !== $days) {
+            $offset = $days - 1;
+            // Сначала сравниваем календарные расстояния, а не прибавляем произвольное число дней.
+            if (null !== $from) {
+                if ($from > $today || ($from < $minimum && $offset < $this->distance($from, $minimum))) {
+                    throw new InvalidRatesImportPeriod('Запрошенный период не пересекается с доступными датами источника.');
+                }
+                $toAdjusted = $offset > $this->distance($from, $today);
+                $to = $toAdjusted ? $today : $from->modify(\sprintf('+%d days', $offset));
+            } else {
+                if ($to < $minimum || ($to > $today && $offset < $this->distance($today, $to))) {
+                    throw new InvalidRatesImportPeriod('Запрошенный период не пересекается с доступными датами источника.');
+                }
+                $fromAdjusted = $offset > $this->distance($minimum, $to);
+                $from = $fromAdjusted ? $minimum : $to->modify(\sprintf('-%d days', $offset));
+            }
         }
+        if (null === $from || null === $to || $to < $minimum || $from > $today) {
+            throw new InvalidRatesImportPeriod('Запрошенный период не пересекается с доступными датами источника.');
+        }
+        $fromAdjusted = $fromAdjusted || $from < $minimum;
+        $toAdjusted = $toAdjusted || $to > $today;
+        $period = new RatesImportPeriod($from < $minimum ? $minimum : $from, $to > $today ? $today : $to);
         try {
             $this->datePolicy->assertAllowed($period->from);
             $this->datePolicy->assertAllowed($period->to);
@@ -72,6 +79,11 @@ final readonly class RatesImportPeriodFactory
             throw new InvalidRatesImportPeriod('Период выходит за пределы доступных дат источника котировок.', previous: $e);
         }
 
-        return $period;
+        return new RatesImportPeriodResolution($period, $requestedFrom, $requestedTo, $days, $fromAdjusted, $toAdjusted);
+    }
+
+    private function distance(DatePoint $from, DatePoint $to): int
+    {
+        return (int) $from->diff($to)->days;
     }
 }

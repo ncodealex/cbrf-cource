@@ -17,6 +17,7 @@ final readonly class RatesImportHandler
 
     public function __invoke(RatesImportPeriod $period): RatesImportResult
     {
+        $requeuedDone = $this->repository->requeueUnconfirmedDone($period);
         $confirmed = [];
         foreach ($this->repository->confirmedDates($period) as $date) {
             $confirmed[$date->format(DateFormatInterface::ISO)] = true;
@@ -36,6 +37,7 @@ final readonly class RatesImportHandler
             \count($missing) - \count($inserted),
             \count($inserted),
             $this->repository->statistics($period),
+            $requeuedDone,
         );
     }
 }

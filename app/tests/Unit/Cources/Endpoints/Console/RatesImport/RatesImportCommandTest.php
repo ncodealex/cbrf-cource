@@ -103,6 +103,33 @@ final class RatesImportCommandTest extends TestCase
         self::assertSame('', $tester->getErrorOutput());
     }
 
+    public function testAdjustedPeriodRequiresConsentBeforeRepositoryAccess(): void
+    {
+        $tester = $this->tester($this->unusedRepository());
+
+        self::assertSame(Command::INVALID, $tester->execute([
+            '--from' => '2026-11-01', '--to' => '2026-11-10',
+        ], ['capture_stderr_separately' => true, 'interactive' => false]));
+        self::assertStringContainsString('требуется подтверждение', $tester->getErrorOutput());
+    }
+
+    public function testYesAcceptsAdjustedPeriod(): void
+    {
+        $repository = $this->createMock(RateImportJobRepositoryInterface::class);
+        $repository->expects(self::once())->method('confirmedDates')->with(self::callback(
+            static fn (RatesImportPeriod $period): bool => '2026-11-02' === $period->to->format(DateFormatInterface::ISO),
+        ))->willReturn([]);
+        $repository->method('register')->willReturn([]);
+        $repository->method('statistics')->willReturn([
+            'waiting' => 2, 'processing' => 0, 'deferred' => 0, 'done' => 0, 'error' => 0,
+        ]);
+        $tester = $this->tester($repository);
+
+        self::assertSame(Command::SUCCESS, $tester->execute([
+            '--from' => '2026-11-01', '--to' => '2026-11-10', '--yes' => true,
+        ], ['capture_stderr_separately' => true, 'interactive' => false]));
+    }
+
     /** @param array<string, string> $options */
     #[DataProvider('invalidInputs')]
     public function testRejectsInvalidInputWithoutCallingRepository(array $options, string $error): void
@@ -134,21 +161,19 @@ final class RatesImportCommandTest extends TestCase
         yield 'Только конец' => [['--to' => '2026-01-30'], $combinationError];
         yield 'Все три опции' => [['--from' => '2026-01-01', '--to' => '2026-01-30', '--days' => '30'], $combinationError];
         yield 'Обратный диапазон' => [['--from' => '2026-01-30', '--to' => '2026-01-01'], 'Дата начала периода не может быть позже даты окончания.'];
-        yield 'Сегодня' => [['--to' => '2026-11-02', '--days' => '1'], 'Границы периода должны быть не позднее вчерашнего дня по Москве.'];
-        yield 'Будущее' => [['--from' => '2026-11-03', '--days' => '1'], 'Границы периода должны быть не позднее вчерашнего дня по Москве.'];
-        yield 'Вычисленная будущая граница' => [['--from' => '2026-11-01', '--days' => '2'], 'Дата окончания периода должна быть не позднее вчерашнего дня по Москве.'];
-        yield 'Слишком длинный период' => [['--days' => (string) \PHP_INT_MAX], 'Число дней превышает допустимую длину календарного периода.'];
+        yield 'Будущее' => [['--from' => '2026-11-03', '--days' => '1'], 'Запрошенный период не пересекается с доступными датами источника.'];
     }
 
     public function testReportsDatePolicyRejectionAsInvalidInput(): void
     {
         $failure = new class('Дата недоступна у источника.') extends \RuntimeException implements GatewayNotSupportRateSetDateInterface {};
         $policy = $this->createMock(ExternalRateSetGatewayDatePolicyInterface::class);
+        $policy->method('minRequestDate')->willReturn(DatePointParser::parse('1992-07-03'));
         $policy->expects(self::once())->method('assertAllowed')->willThrowException($failure);
         $tester = $this->tester($this->unusedRepository(), $policy);
 
         self::assertSame(Command::INVALID, $tester->execute([
-            '--from' => '1992-07-01', '--to' => '1992-07-02',
+            '--from' => '1992-07-03', '--to' => '1992-07-04',
         ], ['capture_stderr_separately' => true]));
         self::assertStringContainsString('Период выходит за пределы доступных дат источника котировок.', $tester->getErrorOutput());
         self::assertSame('', $tester->getDisplay());
@@ -193,7 +218,10 @@ final class RatesImportCommandTest extends TestCase
         RateImportJobRepositoryInterface $repository,
         ?ExternalRateSetGatewayDatePolicyInterface $policy = null,
     ): CommandTester {
-        $policy ??= $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
+        if (null === $policy) {
+            $policy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
+            $policy->method('minRequestDate')->willReturn(DatePointParser::parse('1992-07-03'));
+        }
         // В UTC ещё предыдущий день: границы должны определяться по московскому календарю.
         $clock = new MockClock('2026-11-01 21:30:00 UTC');
         $endpoint = new RatesImportCommand(
@@ -207,7 +235,7 @@ final class RatesImportCommandTest extends TestCase
     private function unusedRepository(): RateImportJobRepositoryInterface&MockObject
     {
         $repository = $this->createMock(RateImportJobRepositoryInterface::class);
-        foreach (['confirmedDates', 'register', 'statistics', 'delete'] as $method) {
+        foreach (['requeueUnconfirmedDone', 'confirmedDates', 'register', 'statistics', 'delete'] as $method) {
             $repository->expects(self::never())->method($method);
         }
 

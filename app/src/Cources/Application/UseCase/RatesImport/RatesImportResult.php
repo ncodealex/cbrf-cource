@@ -20,6 +20,7 @@ final readonly class RatesImportResult
         public int $registered,
         public int $created,
         public array $states,
+        public int $requeuedDone,
     ) {
     }
 }

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Cources\Application\UseCase\RefreshRateSet;
 
 use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
-use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
 use App\Cources\Application\Contract\RateSetCacheInterface;
 use App\Cources\Application\Contract\RateSetProviderInterface;
+use App\Cources\Application\Contract\RateSetRefreshStorageInterface;
 use App\Cources\Application\Contract\RateSetRepositoryInterface;
 use App\Cources\Domain\Entity\RateSet;
 use Symfony\Component\Clock\DatePoint;
@@ -19,7 +19,7 @@ final readonly class RefreshRateSetHandler
         private RateSetCacheInterface $cache,
         private RateSetRepositoryInterface $repository,
         private RateSetProviderInterface $provider,
-        private RateImportJobRepositoryInterface $importJobs,
+        private RateSetRefreshStorageInterface $refreshStorage,
     ) {
     }
 
@@ -28,8 +28,7 @@ final readonly class RefreshRateSetHandler
         $this->datePolicy->assertAllowed($requestDate);
         $relatedDates = $this->repository->relatedRequestDates($requestDate);
         $this->cache->delete(...([] === $relatedDates ? [$requestDate] : $relatedDates));
-        $this->importJobs->delete(...([] === $relatedDates ? [$requestDate] : $relatedDates));
-        $this->repository->delete($requestDate);
+        $this->refreshStorage->invalidate($requestDate, ...([] === $relatedDates ? [$requestDate] : $relatedDates));
 
         return $this->provider->resolve($requestDate);
     }

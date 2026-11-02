@@ -61,7 +61,6 @@ final readonly class DoctrineRateImportJobRepository implements RateImportJobRep
                     UNION ALL
                     SELECT j.status FROM rate_import_jobs j
                     WHERE j.requested_date BETWEEN :from AND :to
-                      AND j.status <> :done
                       AND NOT EXISTS (SELECT 1 FROM confirmed c WHERE c.requested_date = j.requested_date)
                 )
                 SELECT status, COUNT(*) AS total FROM states GROUP BY status
@@ -80,6 +79,43 @@ final readonly class DoctrineRateImportJobRepository implements RateImportJobRep
         }
 
         return $statistics;
+    }
+
+    public function requeueUnconfirmedDone(RatesImportPeriod $period): int
+    {
+        $updated = $this->connection->executeStatement(
+            'UPDATE rate_import_jobs AS j SET '.$this->resetAssignments().'
+             WHERE j.requested_date BETWEEN :from AND :to AND j.status = :done
+               AND NOT EXISTS (SELECT 1 FROM rate_request_dates d WHERE d.requested_date = j.requested_date)',
+            [...$this->bounds($period), 'waiting' => RateImportStatus::Waiting->value, 'done' => RateImportStatus::Done->value],
+        );
+
+        return (int) $updated;
+    }
+
+    public function resetForRefresh(DatePoint ...$dates): void
+    {
+        if ([] === $dates) {
+            return;
+        }
+        $this->connection->executeStatement(
+            'UPDATE rate_import_jobs AS j SET '.$this->resetAssignments().' WHERE j.requested_date IN (:dates)',
+            [
+                'waiting' => RateImportStatus::Waiting->value,
+                'dates' => array_map(static fn (DatePoint $date): string => $date->format(DateFormatInterface::ISO), $dates),
+            ],
+            ['dates' => ArrayParameterType::STRING],
+        );
+    }
+
+    /** Версия растёт при каждом сбросе существующей строки и ограждает её от устаревших исполнителей. */
+    private function resetAssignments(): string
+    {
+        return <<<'SQL'
+            status = :waiting, version = j.version + 1, attempts = 0,
+            available_at = NOW(), lease_until = NULL, dispatched_at = NULL,
+            error_text = NULL, error_code = NULL, completed_at = NULL, updated_at = NOW()
+            SQL;
     }
 
     public function delete(DatePoint ...$dates): void

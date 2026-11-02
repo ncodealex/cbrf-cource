@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Cources\Application;
 
 use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
-use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
 use App\Cources\Application\Contract\RateSetCacheInterface;
 use App\Cources\Application\Contract\RateSetProviderInterface;
+use App\Cources\Application\Contract\RateSetRefreshStorageInterface;
 use App\Cources\Application\Contract\RateSetRepositoryInterface;
 use App\Cources\Application\Exception\RateSetCacheFailure;
 use App\Cources\Application\UseCase\RefreshRateSet\RefreshRateSetHandler;
@@ -28,6 +28,7 @@ final class RefreshRateSetHandlerTest extends TestCase
         $cache = $this->createMock(RateSetCacheInterface::class);
         $repository = $this->createMock(RateSetRepositoryInterface::class);
         $provider = $this->createMock(RateSetProviderInterface::class);
+        $storage = $this->createMock(RateSetRefreshStorageInterface::class);
 
         $policy->expects(self::once())->method('assertAllowed')->with($date)->willReturnCallback(
             static function () use (&$events): void {
@@ -44,9 +45,9 @@ final class RefreshRateSetHandlerTest extends TestCase
                 ));
             },
         );
-        $repository->expects(self::once())->method('delete')->with($date)->willReturnCallback(
+        $storage->expects(self::once())->method('invalidate')->with($date, $date, $relatedDate)->willReturnCallback(
             static function () use (&$events): void {
-                $events[] = 'repository.delete';
+                $events[] = 'storage.invalidate';
             },
         );
         $provider->expects(self::once())->method('resolve')->with($date)->willReturnCallback(
@@ -57,13 +58,13 @@ final class RefreshRateSetHandlerTest extends TestCase
             },
         );
 
-        $result = (new RefreshRateSetHandler($policy, $cache, $repository, $provider, $this->createStub(RateImportJobRepositoryInterface::class)))($date);
+        $result = (new RefreshRateSetHandler($policy, $cache, $repository, $provider, $storage))($date);
 
         self::assertSame($set, $result);
         self::assertSame([
             'validate',
             'cache.delete:1994-02-01,1994-02-02',
-            'repository.delete',
+            'storage.invalidate',
             'provider.resolve',
         ], $events);
     }
@@ -73,16 +74,17 @@ final class RefreshRateSetHandlerTest extends TestCase
         $date = DatePointParser::parse('1994-02-01');
         $policy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
         $cache = $this->createMock(RateSetCacheInterface::class);
-        $repository = $this->createMock(RateSetRepositoryInterface::class);
+        $repository = $this->createStub(RateSetRepositoryInterface::class);
         $provider = $this->createMock(RateSetProviderInterface::class);
+        $storage = $this->createMock(RateSetRefreshStorageInterface::class);
         $repository->method('relatedRequestDates')->willReturn([$date]);
         $cache->expects(self::once())->method('delete')->with($date)
             ->willThrowException(new RateSetCacheFailure('Redis недоступен'));
-        $repository->expects(self::never())->method('delete');
+        $storage->expects(self::never())->method('invalidate');
         $provider->expects(self::never())->method('resolve');
 
         $this->expectException(RateSetCacheFailure::class);
-        (new RefreshRateSetHandler($policy, $cache, $repository, $provider, $this->createStub(RateImportJobRepositoryInterface::class)))($date);
+        (new RefreshRateSetHandler($policy, $cache, $repository, $provider, $storage))($date);
     }
 
     public function testDeletesRequestedDateFromCacheWhenDatabaseHasNoRelations(): void
@@ -91,13 +93,14 @@ final class RefreshRateSetHandlerTest extends TestCase
         $set = RateSets::saturday();
         $policy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
         $cache = $this->createMock(RateSetCacheInterface::class);
-        $repository = $this->createMock(RateSetRepositoryInterface::class);
+        $repository = $this->createStub(RateSetRepositoryInterface::class);
         $provider = $this->createStub(RateSetProviderInterface::class);
+        $storage = $this->createMock(RateSetRefreshStorageInterface::class);
         $repository->method('relatedRequestDates')->willReturn([]);
         $cache->expects(self::once())->method('delete')->with($date);
-        $repository->expects(self::once())->method('delete')->with($date);
+        $storage->expects(self::once())->method('invalidate')->with($date, $date);
         $provider->method('resolve')->willReturn($set);
 
-        self::assertSame($set, (new RefreshRateSetHandler($policy, $cache, $repository, $provider, $this->createStub(RateImportJobRepositoryInterface::class)))($date));
+        self::assertSame($set, (new RefreshRateSetHandler($policy, $cache, $repository, $provider, $storage))($date));
     }
 }
