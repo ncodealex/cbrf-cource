@@ -59,7 +59,7 @@ final class CurrencyCodeTest extends TestCase
 
     public function testPairDefaultsToRubleBase(): void
     {
-        $pair = CurrencyPair::of('usd');
+        $pair = new CurrencyPair(CurrencyCode::fromString('usd'), CurrencyCode::rub());
 
         self::assertSame('USD/RUB', (string) $pair);
         self::assertTrue($pair->isExact());
@@ -67,8 +67,13 @@ final class CurrencyCodeTest extends TestCase
 
     public function testCrossPairIsNotExact(): void
     {
-        self::assertFalse(CurrencyPair::of('INR', 'USD')->isExact());
-        self::assertFalse(CurrencyPair::of('RUB', 'USD')->isExact());
-        self::assertTrue(CurrencyPair::of('EUR', 'eur')->isExact());
+        self::assertFalse($this->pair('INR', 'USD')->isExact());
+        self::assertFalse($this->pair('RUB', 'USD')->isExact());
+        self::assertTrue($this->pair('EUR', 'eur')->isExact());
+    }
+
+    private function pair(string $currency, string $base): CurrencyPair
+    {
+        return new CurrencyPair(CurrencyCode::fromString($currency), CurrencyCode::fromString($base));
     }
 }

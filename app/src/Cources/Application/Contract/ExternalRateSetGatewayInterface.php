@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Cources\Application\Contract;
 
 use App\Cources\Domain\Entity\RateSet;
-use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
 use Symfony\Component\Clock\DatePoint;
 
 /**
@@ -15,15 +14,11 @@ interface ExternalRateSetGatewayInterface
 {
     /**
      *  Запросить котировки во внешнем API.
-     *
-     * @throws CbrGatewayException
      */
     public function fetch(DatePoint $requestDate): RateSet;
 
     /**
      *  Получить последние зарегистрированные котировки.
-     *
-     * @throws CbrGatewayException
      */
     public function fetchLatest(): RateSet;
 }

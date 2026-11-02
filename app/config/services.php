@@ -12,6 +12,7 @@ use Symfony\Component\Clock\Clock;
  */
 return [
     'parameters' => [
+        'app.cbr.load_lock_ttl'        => 30.0,
         'app.redis.connection_options' => [
             'lazy'         => true,
             'timeout'      => 1.0,
@@ -33,8 +34,6 @@ return [
                 '../src/Cources/Domain/',
                 '../src/Cources/Infrastructure/Cbr/Response/',
                 '../src/Cources/Application/Exception/',
-                '../src/Cources/Application/GetExchangeRate/GetExchangeRateQuery.php',
-                '../src/Cources/Application/GetExchangeRate/GetExchangeRateResult.php',
                 '../src/Cources/Infrastructure/Mapping/InvalidRateSetPayload.php',
                 '../src/Modules/*/Domain/',
                 '../src/Integration/*/Domain/',
@@ -42,6 +41,18 @@ return [
         ],
 
         App\Cources\Domain\ExchangeRateCalculator::class => [],
+        'app.cbr.console_retry_policy'                   => [
+            'class'     => App\Support\Retry\Application\RetryPolicy::class,
+            'arguments' => ['@' . Psr\Clock\ClockInterface::class, 3, 100, 200, 20],
+        ],
+        'app.cbr.lock_store'                             => [
+            'class'     => Symfony\Component\Lock\Store\RedisStore::class,
+            'arguments' => ['@' . Redis::class],
+        ],
+        'app.cbr.lock_factory'                           => [
+            'class'     => Symfony\Component\Lock\LockFactory::class,
+            'arguments' => ['@app.cbr.lock_store'],
+        ],
 
         // Штатный ClockInterface от FrameworkBundle, зафиксированный в часовой зоне приложения.
         // Clock оставляем обёрткой над глобальными часами для поддержки MockClock в тестах.

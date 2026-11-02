@@ -45,9 +45,13 @@ interface RateSetRepositoryInterface
      */
     public function save(DatePoint $requestDate, RateSet $rateSet): void;
 
-    /** @return list<DatePoint> все календарные даты, связанные с тем же набором */
+    /**
+     * @return list<DatePoint> все календарные даты, связанные с тем же набором
+     */
     public function relatedRequestDates(DatePoint $requestDate): array;
 
-    /** Удалить набор выбранной даты; связанные календарные даты удаляются каскадно. */
+    /**
+     * Удалить набор выбранной даты; связанные календарные даты удаляются каскадно.
+     */
     public function delete(DatePoint $requestDate): void;
 }

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Cources\Infrastructure\Mapping;
 
-final class InvalidRateSetPayload extends \UnexpectedValueException
+use Symfony\Component\DependencyInjection\Attribute\Exclude;
+use UnexpectedValueException;
+
+#[Exclude]
+final class InvalidRateSetPayload extends UnexpectedValueException
 {
 }

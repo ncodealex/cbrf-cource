@@ -10,7 +10,9 @@ use App\Cources\Domain\ExchangeRateCalculator;
 use App\Cources\Domain\ValueObject\CurrencyCode;
 use BcMath\Number;
 use Symfony\Component\Clock\DatePoint;
+use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+#[Exclude]
 final readonly class GetExchangeRateResult
 {
     public function __construct(

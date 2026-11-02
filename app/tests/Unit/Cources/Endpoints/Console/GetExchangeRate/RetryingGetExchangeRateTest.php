@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Unit\Cources\Endpoints\Console\GetExchangeRate;
+
+use App\Cources\Application\Contract\RateSetProviderInterface;
+use App\Cources\Application\Exception\RateSetLoadBusy;
+use App\Cources\Application\Factory\CurrencyPairFactory;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateHandler;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateQuery;
+use App\Cources\Domain\ExchangeRateCalculator;
+use App\Cources\Endpoints\Console\GetExchangeRate\RetryingGetExchangeRate;
+use App\Cources\Infrastructure\Cbr\Exception\CbrRequestRateLimitExceeded;
+use App\Support\Retry\Application\RetryPolicy;
+use App\Tests\Unit\Cources\Domain\RateSets;
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\DatePoint;
+use Symfony\Component\Clock\MockClock;
+
+final class RetryingGetExchangeRateTest extends TestCase
+{
+    private MockClock $clock;
+
+    protected function setUp(): void
+    {
+        $this->clock = new MockClock('2026-11-02 12:00:00.000000 Europe/Moscow');
+    }
+
+    public function testRetriesTemporaryFailureAndReturnsResult(): void
+    {
+        $calls = 0;
+        $provider = $this->createStub(RateSetProviderInterface::class);
+        $provider->method('resolve')->willReturnCallback(static function () use (&$calls) {
+            ++$calls;
+            if (1 === $calls) {
+                throw new RateSetLoadBusy();
+            }
+
+            return 2 === $calls ? RateSets::saturday() : RateSets::friday();
+        });
+
+        $result = ($this->retryingHandler($provider))($this->query());
+
+        self::assertSame('81.4500', (string) $result->rate);
+        self::assertSame(3, $calls);
+        self::assertSame('2026-11-02 12:00:00.100000', $this->clock->now()->format('Y-m-d H:i:s.u'));
+    }
+
+    public function testDoesNotStartThirdAttemptAtBudgetBoundary(): void
+    {
+        $failure = new RateSetLoadBusy();
+        $calls = 0;
+        $provider = $this->createStub(RateSetProviderInterface::class);
+        $provider->method('resolve')->willReturnCallback(static function () use (&$calls, $failure): never {
+            ++$calls;
+            throw $failure;
+        });
+        $this->expectExceptionObject($failure);
+
+        try {
+            ($this->retryingHandler($provider))($this->query());
+        } finally {
+            self::assertSame(2, $calls);
+            self::assertSame('2026-11-02 12:00:00.100000', $this->clock->now()->format('Y-m-d H:i:s.u'));
+        }
+    }
+
+    public function testExplicitRetryAtInsideBudgetIsRespected(): void
+    {
+        $calls = 0;
+        $failure = new CbrRequestRateLimitExceeded(new DatePoint('2026-11-02 12:00:00.050000 Europe/Moscow'));
+        $provider = $this->createStub(RateSetProviderInterface::class);
+        $provider->method('resolve')->willReturnCallback(static function () use (&$calls, $failure) {
+            ++$calls;
+            if (1 === $calls) {
+                throw $failure;
+            }
+
+            return 2 === $calls ? RateSets::saturday() : RateSets::friday();
+        });
+
+        ($this->retryingHandler($provider))($this->query());
+
+        self::assertSame(3, $calls);
+        self::assertSame('2026-11-02 12:00:00.050000', $this->clock->now()->format('Y-m-d H:i:s.u'));
+    }
+
+    public function testExplicitRetryAtOutsideBudgetIsNotWaitedFor(): void
+    {
+        $failure = new CbrRequestRateLimitExceeded(new DatePoint('2026-11-02 12:00:40 Europe/Moscow'));
+        $provider = $this->createMock(RateSetProviderInterface::class);
+        $provider->expects(self::once())->method('resolve')->willThrowException($failure);
+        $this->expectExceptionObject($failure);
+
+        try {
+            ($this->retryingHandler($provider))($this->query());
+        } finally {
+            self::assertSame('2026-11-02 12:00:00.000000', $this->clock->now()->format('Y-m-d H:i:s.u'));
+        }
+    }
+
+    public function testPermanentFailureIsNotRetried(): void
+    {
+        $failure = new \RuntimeException('Постоянная ошибка');
+        $provider = $this->createMock(RateSetProviderInterface::class);
+        $provider->expects(self::once())->method('resolve')->willThrowException($failure);
+        $this->expectExceptionObject($failure);
+
+        ($this->retryingHandler($provider))($this->query());
+    }
+
+    private function retryingHandler(RateSetProviderInterface $provider): RetryingGetExchangeRate
+    {
+        return new RetryingGetExchangeRate(
+            new GetExchangeRateHandler($provider, new ExchangeRateCalculator()),
+            new RetryPolicy($this->clock, 3, 100, 200, 0),
+            $this->clock,
+        );
+    }
+
+    private function query(): GetExchangeRateQuery
+    {
+        return new GetExchangeRateQuery(
+            new DatePoint('2026-10-26 Europe/Moscow'),
+            new CurrencyPairFactory()->of('USD'),
+        );
+    }
+}
