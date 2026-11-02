@@ -15,7 +15,7 @@ return [
             'server_version' => '18',
             'charset' => 'utf8',
             // Таблицами курсов управляют DBAL и миграции, а не ORM SchemaTool.
-            'schema_filter' => '~^(?!(?:rate_sets|rate_request_dates)$)~',
+            'schema_filter' => '~^(?!(?:rate_sets|rate_request_dates|rate_import_jobs)$)~',
             'profiling_collect_backtrace' => '%kernel.debug%',
             'options' => [
                 // pdo_pgsql передаёт ATTR_TIMEOUT в libpq как connect_timeout (секунды).
