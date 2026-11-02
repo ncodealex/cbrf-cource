@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Cources\Application\GetExchangeRate;
+namespace App\Cources\Application\UseCase\GetExchangeRate;
 
 use App\Cources\Application\Contract\RateSetProviderInterface;
 use App\Cources\Domain\ExchangeRateCalculator;

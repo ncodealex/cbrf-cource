@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Cources\Application\RefreshRateSet;
+namespace App\Cources\Application\UseCase\RefreshRateSet;
 
 use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
 use App\Cources\Application\Contract\RateSetCacheInterface;

@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Cources\Endpoints\Console\GetExchangeRate;
+namespace App\Cources\Endpoints\Console\GetExchangeRate\Response;
 
-use App\Cources\Application\GetExchangeRate\GetExchangeRateResult;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateResult;
 use App\Shared\Domain\DateFormatInterface;
 
-final class GetExchangeRateCommandJsonResponse
+final class JsonResponse
 {
     public static function data(GetExchangeRateResult $result): array
     {

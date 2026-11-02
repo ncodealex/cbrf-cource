@@ -6,9 +6,9 @@ namespace App\Tests\Unit\Cources\Application;
 
 use App\Cources\Application\Contract\RateSetProviderInterface;
 use App\Cources\Application\Exception\RateSetNotFound;
-use App\Cources\Application\GetExchangeRate\GetExchangeRateHandler;
-use App\Cources\Application\GetExchangeRate\GetExchangeRateQuery;
-use App\Cources\Application\GetExchangeRate\GetExchangeRateResult;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateHandler;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateQuery;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateResult;
 use App\Cources\Domain\CurrencyPair;
 use App\Cources\Domain\Entity\RateItem;
 use App\Cources\Domain\ExchangeRate;

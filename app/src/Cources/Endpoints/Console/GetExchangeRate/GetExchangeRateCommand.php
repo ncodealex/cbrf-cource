@@ -6,11 +6,12 @@ namespace App\Cources\Endpoints\Console\GetExchangeRate;
 
 use App\Cources\Application\Exception\RateSetConflict;
 use App\Cources\Application\Exception\RateSetNotFound;
-use App\Cources\Application\GetExchangeRate\GetExchangeRateHandler;
-use App\Cources\Application\GetExchangeRate\GetExchangeRateQuery;
-use App\Cources\Application\GetExchangeRate\GetExchangeRateResult;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateHandler;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateQuery;
+use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateResult;
 use App\Cources\Domain\Exception\ExchangeRate\ExchangeRateException;
 use App\Cources\Domain\Factory\CurrencyPairFactoryInterface;
+use App\Cources\Endpoints\Console\GetExchangeRate\Response\JsonResponse;
 use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
 use App\Shared\Domain\DateFormatInterface;
 use App\Shared\Domain\DatePointParser;
@@ -80,7 +81,7 @@ final readonly class GetExchangeRateCommand
 
     private function renderJson(SymfonyStyle $io, GetExchangeRateResult $result): void
     {
-        $data = GetExchangeRateCommandJsonResponse::data($result);
+        $data = JsonResponse::data($result);
         $io->writeln(json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
 

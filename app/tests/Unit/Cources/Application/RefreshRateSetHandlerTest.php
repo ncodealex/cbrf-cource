@@ -9,7 +9,7 @@ use App\Cources\Application\Contract\RateSetCacheInterface;
 use App\Cources\Application\Contract\RateSetProviderInterface;
 use App\Cources\Application\Contract\RateSetRepositoryInterface;
 use App\Cources\Application\Exception\RateSetCacheFailure;
-use App\Cources\Application\RefreshRateSet\RefreshRateSetHandler;
+use App\Cources\Application\UseCase\RefreshRateSet\RefreshRateSetHandler;
 use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use PHPUnit\Framework\TestCase;
@@ -19,14 +19,14 @@ final class RefreshRateSetHandlerTest extends TestCase
 {
     public function testDeletesAllRelatedCacheEntriesBeforeDeletingSetAndResolvingAgain(): void
     {
-        $date = DatePointParser::parse('1994-02-01');
+        $date        = DatePointParser::parse('1994-02-01');
         $relatedDate = DatePointParser::parse('1994-02-02');
-        $set = RateSets::saturday();
-        $events = [];
-        $policy = $this->createMock(ExternalRateSetGatewayDatePolicyInterface::class);
-        $cache = $this->createMock(RateSetCacheInterface::class);
-        $repository = $this->createMock(RateSetRepositoryInterface::class);
-        $provider = $this->createMock(RateSetProviderInterface::class);
+        $set         = RateSets::saturday();
+        $events      = [];
+        $policy      = $this->createMock(ExternalRateSetGatewayDatePolicyInterface::class);
+        $cache       = $this->createMock(RateSetCacheInterface::class);
+        $repository  = $this->createMock(RateSetRepositoryInterface::class);
+        $provider    = $this->createMock(RateSetProviderInterface::class);
 
         $policy->expects(self::once())->method('assertAllowed')->with($date)->willReturnCallback(
             static function () use (&$events): void {
@@ -37,10 +37,10 @@ final class RefreshRateSetHandlerTest extends TestCase
             ->willReturn([$date, $relatedDate]);
         $cache->expects(self::once())->method('delete')->with($date, $relatedDate)->willReturnCallback(
             static function (DatePoint ...$cacheDates) use (&$events): void {
-                $events[] = 'cache.delete:'.implode(',', array_map(
-                    static fn(DatePoint $cacheDate): string => $cacheDate->format('Y-m-d'),
-                    $cacheDates,
-                ));
+                $events[] = 'cache.delete:' . implode(',', array_map(
+                        static fn(DatePoint $cacheDate): string => $cacheDate->format('Y-m-d'),
+                        $cacheDates,
+                    ));
             },
         );
         $repository->expects(self::once())->method('delete')->with($date)->willReturnCallback(
@@ -69,11 +69,11 @@ final class RefreshRateSetHandlerTest extends TestCase
 
     public function testCacheFailurePreventsDatabaseDeleteAndReload(): void
     {
-        $date = DatePointParser::parse('1994-02-01');
-        $policy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
-        $cache = $this->createMock(RateSetCacheInterface::class);
+        $date       = DatePointParser::parse('1994-02-01');
+        $policy     = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
+        $cache      = $this->createMock(RateSetCacheInterface::class);
         $repository = $this->createMock(RateSetRepositoryInterface::class);
-        $provider = $this->createMock(RateSetProviderInterface::class);
+        $provider   = $this->createMock(RateSetProviderInterface::class);
         $repository->method('relatedRequestDates')->willReturn([$date]);
         $cache->expects(self::once())->method('delete')->with($date)
             ->willThrowException(new RateSetCacheFailure('Redis недоступен'));
@@ -86,12 +86,12 @@ final class RefreshRateSetHandlerTest extends TestCase
 
     public function testDeletesRequestedDateFromCacheWhenDatabaseHasNoRelations(): void
     {
-        $date = DatePointParser::parse('1994-02-01');
-        $set = RateSets::saturday();
-        $policy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
-        $cache = $this->createMock(RateSetCacheInterface::class);
+        $date       = DatePointParser::parse('1994-02-01');
+        $set        = RateSets::saturday();
+        $policy     = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
+        $cache      = $this->createMock(RateSetCacheInterface::class);
         $repository = $this->createMock(RateSetRepositoryInterface::class);
-        $provider = $this->createStub(RateSetProviderInterface::class);
+        $provider   = $this->createStub(RateSetProviderInterface::class);
         $repository->method('relatedRequestDates')->willReturn([]);
         $cache->expects(self::once())->method('delete')->with($date);
         $repository->expects(self::once())->method('delete')->with($date);
