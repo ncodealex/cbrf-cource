@@ -253,7 +253,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                 ],
                 ['states' => ArrayParameterType::STRING],
             );
-            $unclaimed = (int) $unclaimedValue;
+            $unclaimed = (int) $this->text($unclaimedValue);
             $count = min($limit, max(0, $maxUnclaimed - $unclaimed));
 
             if (0 === $count) {

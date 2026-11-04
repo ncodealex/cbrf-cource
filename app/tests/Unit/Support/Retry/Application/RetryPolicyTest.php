@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Support\Retry\Application;
 
+use App\Cources\Application\Exception\RateSetConflict;
 use App\Support\Retry\Application\RetryableFailure;
 use App\Support\Retry\Application\RetryPolicy;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -23,6 +24,14 @@ final class RetryPolicyTest extends TestCase
     public function testNonRetryableFailureIsDenied(): void
     {
         $decision = $this->policy()->decide(new \RuntimeException('Постоянная ошибка'), 1);
+
+        self::assertFalse($decision->allowed);
+        self::assertNull($decision->retryAt);
+    }
+
+    public function testRateSetConflictIsDenied(): void
+    {
+        $decision = $this->policy()->decide(new RateSetConflict('Конфликт сохранённых курсов'), 1);
 
         self::assertFalse($decision->allowed);
         self::assertNull($decision->retryAt);

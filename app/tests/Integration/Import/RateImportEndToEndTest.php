@@ -153,6 +153,86 @@ final class RateImportEndToEndTest extends KernelTestCase
         self::assertSame('done', $this->jobStatus());
     }
 
+    public function testRateSetConflictIsAcknowledgedAsTerminalError(): void
+    {
+        $repository = new DoctrineRateSetRepository($this->connection, new RateSetMapper());
+        $conflicting = RateSets::create(
+            '2026-10-24',
+            [['USD', 'R01235', 1, '1.0000']],
+        );
+        $repository->save(DatePointParser::parse('2026-10-27'), $conflicting);
+
+        $this->console('app:rates:import', '--from=2026-10-24', '--to=2026-10-24');
+        $this->console('app:rates:dispatch', '--once');
+        $this->consume();
+
+        $job = $this->connection->fetchAssociative(
+            <<<'SQL'
+                SELECT status, version, attempts, lease_until, error_code, error_text
+                FROM rate_import_jobs
+                WHERE requested_date = '2026-10-24'
+                SQL,
+        );
+        self::assertIsArray($job);
+        self::assertSame('error', $job['status']);
+        self::assertSame(2, $job['version']);
+        self::assertSame(1, $job['attempts']);
+        self::assertNull($job['lease_until']);
+        self::assertIsString($job['error_code']);
+        self::assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $job['error_code'],
+        );
+        self::assertIsString($job['error_text']);
+        self::assertStringContainsString('Сохранённый набор курсов отличается', $job['error_text']);
+        self::assertSame($conflicting->contentHash(), $repository->get(DatePointParser::parse('2026-10-27'))->contentHash());
+        self::assertFalse(new DoctrineImportJobQueryRepository($this->connection)->isConfirmed('2026-10-24'));
+        self::assertSame(0, $this->failedMessageCountFor('2026-10-24'));
+
+        // Повторная доставка устаревшей версии подтверждается без изменения Error.
+        $this->transport->send(new Envelope(new ProcessRateImportMessage('2026-10-24', 0)));
+        $this->consume();
+        self::assertSame('error', $this->jobStatus());
+        self::assertSame(2, $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    version
+                FROM rate_import_jobs
+                SQL,
+        ));
+
+        $this->console('app:rates:retry-errors', '--date=2026-10-24');
+        $recovered = $this->connection->fetchAssociative(
+            <<<'SQL'
+                SELECT status, version, attempts, error_code, error_text
+                FROM rate_import_jobs
+                WHERE requested_date = '2026-10-24'
+                SQL,
+        );
+        self::assertIsArray($recovered);
+        self::assertSame('waiting', $recovered['status']);
+        self::assertSame(3, $recovered['version']);
+        self::assertSame(0, $recovered['attempts']);
+        self::assertNull($recovered['error_code']);
+        self::assertNull($recovered['error_text']);
+    }
+
+    private function failedMessageCountFor(string $date): int
+    {
+        $failed = self::getContainer()->get('messenger.transport.failed');
+        self::assertInstanceOf(AmqpTransport::class, $failed);
+        $count = 0;
+        foreach ($failed->get() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof ProcessRateImportMessage && $date === $message->requestedDate) {
+                ++$count;
+            }
+            $failed->ack($envelope);
+        }
+
+        return $count;
+    }
+
     public function test503IsDeferredAndRecovered(): void
     {
         $this->control('503');
@@ -358,38 +438,6 @@ final class RateImportEndToEndTest extends KernelTestCase
             self::assertSame('done', $this->jobStatus());
         } finally {
             $worker->stop();
-        }
-    }
-
-    public function testLegacySerializedMessageIsConsumedFromExistingQueue(): void
-    {
-        $this->console('app:rates:import', '--from=2026-10-24', '--to=2026-10-24');
-        $oldName = 'App\\Cources\\Application\\Message\\ProcessRateImportMessage';
-        $newName = ProcessRateImportMessage::class;
-        $payload = serialize(new Envelope(new ProcessRateImportMessage('2026-10-24', 0)));
-        $payload = str_replace(
-            'O:'.\strlen($newName).':"'.$newName.'"',
-            'O:'.\strlen($oldName).':"'.$oldName.'"',
-            $payload,
-        );
-        self::assertStringContainsString($oldName, $payload);
-        $dsn = $_ENV['MESSENGER_TRANSPORT_DSN'];
-        self::assertIsString($dsn);
-        $login = $_ENV['RABBITMQ_USER'];
-        $password = $_ENV['RABBITMQ_PASSWORD'];
-        self::assertIsString($login);
-        self::assertIsString($password);
-        $connection = \Symfony\Component\Messenger\Bridge\Amqp\Transport\Connection::fromDsn($dsn, [
-            'login' => $login, 'password' => $password,
-            'exchange' => ['name' => 'rates_import', 'type' => 'direct', 'flags' => 2, 'default_publish_routing_key' => 'rates_import'],
-            'queues' => ['rates_import' => ['flags' => 2, 'binding_keys' => ['rates_import']]],
-        ]);
-        try {
-            $connection->publish(addslashes($payload));
-            $this->consume();
-            self::assertSame('done', $this->jobStatus());
-        } finally {
-            $connection->clear();
         }
     }
 

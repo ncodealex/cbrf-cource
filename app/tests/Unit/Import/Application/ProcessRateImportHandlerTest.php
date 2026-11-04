@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Import\Application;
 
+use App\Cources\Application\Exception\RateSetConflict;
 use App\Cources\Application\Exception\RateSetLoadBusy;
 use App\Cources\Infrastructure\Cbr\Exception\CbrInvalidResponse;
 use App\Cources\Infrastructure\Cbr\Exception\CbrRateLimited;
@@ -16,6 +17,7 @@ use App\Import\Application\Message\ProcessRateImportMessage;
 use App\Import\Application\UseCase\ProcessRateImport\ProcessRateImportHandler;
 use App\Import\Domain\Enum\RateImportAction;
 use App\Import\Domain\ValueObject\ImportJobExecution;
+use App\Shared\Contracts\Rates\RateImportPermanentFailure;
 use App\Shared\Contracts\Rates\RateSetImportGateway;
 use App\Shared\Domain\DatePointParser;
 use App\Support\Retry\Application\RetryPolicy;
@@ -26,6 +28,14 @@ use Symfony\Component\Clock\MockClock;
 
 final class ProcessRateImportHandlerTest extends TestCase
 {
+    public function testRateSetConflictIsPermanentFailure(): void
+    {
+        self::assertContains(
+            RateImportPermanentFailure::class,
+            new \ReflectionClass(RateSetConflict::class)->getInterfaceNames(),
+        );
+    }
+
     public function testStaleMessageDoesNotResolve(): void
     {
         $repo = $this->createMockForIntersectionOfInterfaces([ImportJobRepositoryInterface::class, ImportJobQueryRepositoryInterface::class]);
@@ -58,7 +68,55 @@ final class ProcessRateImportHandlerTest extends TestCase
         yield '503' => [new CbrUnavailable('503', 503), 0, RateImportAction::Defer, 1];
         yield 'timeout' => [new CbrUnavailable('timeout'), 0, RateImportAction::Defer, 1];
         yield 'invalid' => [new CbrInvalidResponse('XML'), 0, RateImportAction::Fail, 1];
+        yield 'conflict' => [new RateSetConflict('Конфликт сохранённых курсов'), 0, RateImportAction::Fail, 1];
         yield 'exhausted' => [new CbrUnavailable('503', 503), 4, RateImportAction::Fail, 5];
+    }
+
+    public function testConflictIsSavedAsTerminalErrorWithoutRetry(): void
+    {
+        $failure = new RateSetConflict('Конфликт сохранённых курсов');
+        $repo = $this->createMockForIntersectionOfInterfaces([ImportJobRepositoryInterface::class, ImportJobQueryRepositoryInterface::class]);
+        $repo->expects(self::once())->method('claim')->willReturn(
+            new ImportJobExecution(DatePointParser::parse('2026-01-01'), 7, 2),
+        );
+        $repo->expects(self::once())->method('finish')->with(
+            self::callback(static fn (ImportJobExecution $claim): bool => 7 === $claim->version),
+            RateImportAction::Fail,
+            3,
+            null,
+            self::callback(static fn (?string $code): bool => null !== $code && 1 === preg_match(
+                '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+                $code,
+            )),
+            'Конфликт сохранённых курсов',
+        )->willReturn(true);
+        $provider = $this->createMock(RateSetImportGateway::class);
+        $provider->expects(self::once())->method('isConfirmed')->willReturn(false);
+        $provider->expects(self::once())->method('ensureAvailable')->willThrowException($failure);
+
+        $this->handler($repo, $provider)(new ProcessRateImportMessage('2026-01-01', 6));
+    }
+
+    public function testFailureToSaveConflictStateEscapes(): void
+    {
+        $storageFailure = new \RuntimeException('PostgreSQL недоступен');
+        $repo = $this->createMockForIntersectionOfInterfaces([ImportJobRepositoryInterface::class, ImportJobQueryRepositoryInterface::class]);
+        $repo->expects(self::once())->method('claim')->willReturn(
+            new ImportJobExecution(DatePointParser::parse('2026-01-01'), 1, 0),
+        );
+        $repo->expects(self::once())->method('finish')->with(
+            self::anything(),
+            RateImportAction::Fail,
+            1,
+        )->willThrowException($storageFailure);
+        $provider = $this->createMock(RateSetImportGateway::class);
+        $provider->expects(self::once())->method('ensureAvailable')->willThrowException(
+            new RateSetConflict('Конфликт сохранённых курсов'),
+        );
+
+        $this->expectExceptionObject($storageFailure);
+
+        $this->handler($repo, $provider)(new ProcessRateImportMessage('2026-01-01', 0));
     }
 
     #[DataProvider('failures')]

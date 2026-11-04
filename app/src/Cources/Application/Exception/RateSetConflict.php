@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Cources\Application\Exception;
 
-final class RateSetConflict extends \RuntimeException
+use App\Shared\Contracts\Rates\RateImportPermanentFailure;
+
+final class RateSetConflict extends \RuntimeException implements RateImportPermanentFailure
 {
 }
