@@ -55,21 +55,11 @@ deptrac:
           collectors:
               - type: directory
                 value: src/Support/[^/]+/(?:Endpoints|Presentation)/.*
-        -   name: Doctrine.DomainModel
-            collectors:
-                -   type: classNameRegex
-                    value: '#^Doctrine\\ORM\\Mapping\\#'
-                -   type: classNameRegex
-                    value: '#^Doctrine\\Common\\Collections\\(ArrayCollection|Collection|ReadableCollection|Selectable|Criteria)$#'
-
         # Symfony Clock DatePoint — неизменяемый тип даты/времени, допустим в доменных моделях
-        # (Doctrine-тип date_point регистрируется DoctrineBundle автоматически).
         -   name: Symfony.DatePoint
             collectors:
                 -   type: classNameRegex
                     value: '#^Symfony\\Component\\Clock\\DatePoint$#'
-                -   type: classNameRegex
-                    value: '#^Symfony\\Bridge\\Doctrine\\Types\\DatePointType$#'
 
         # Symfony Clock (symfony/clock): источник текущего времени для use cases.
         # Domain получает время аргументом (DatePoint), а не обращается к часам сам.
@@ -97,16 +87,15 @@ deptrac:
         -   name: Vendor
             collectors:
                 -   type: classNameRegex
-                    value: '#^Symfony\\(?!Component\\Clock\\(DatePoint|ClockInterface)$|Bridge\\Doctrine\\Types\\DatePointType$|Component\\DependencyInjection\\Attribute\\)#'
+                    value: '#^Symfony\\(?!Component\\Clock\\(DatePoint|ClockInterface)$|Component\\DependencyInjection\\Attribute\\)#'
                 -   type: classNameRegex
-                    value: '#^Doctrine\\(?!ORM\\Mapping\\|Common\\Collections\\(ArrayCollection|Collection|ReadableCollection|Selectable|Criteria)$)#'
+                    value: '#^Doctrine\\#'
                 -   type: classNameRegex
                     value: '#^Monolog\\#'
 
 
     ruleset:
         Shared.Domain:
-            - Doctrine.DomainModel
             - Symfony.DatePoint
         Shared.Contracts:
             - Shared.Domain
@@ -126,7 +115,6 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Doctrine.DomainModel
         Support.Endpoints:
             - Shared.Domain
             - Symfony.DatePoint
@@ -136,7 +124,6 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Doctrine.DomainModel
         Import.Domain:
             - Shared.Domain
             - Symfony.DatePoint
@@ -158,7 +145,6 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Doctrine.DomainModel
             - Import.Domain
             - Import.Application
         Import.Endpoints:
@@ -170,13 +156,11 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Doctrine.DomainModel
             - Import.Domain
             - Import.Application
         Cources.Domain:
             - Shared.Domain
             - Symfony.DatePoint
-            - Doctrine.DomainModel
         Cources.Application:
             - Shared.Domain
             - Symfony.DatePoint
@@ -195,7 +179,6 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Doctrine.DomainModel
             - Cources.Domain
             - Cources.Application
         Cources.Endpoints:
@@ -207,10 +190,8 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Doctrine.DomainModel
             - Cources.Domain
             - Cources.Application
-        Doctrine.DomainModel: ~
         Symfony.DatePoint: ~
         Symfony.ClockInterface: ~
         Symfony.DependencyInjectionAttribute: ~

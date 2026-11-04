@@ -5,7 +5,7 @@
 ## Стек и рабочее окружение
 
 - PHP >= 8.4.27, Symfony 7.4; точные версии зависимостей — в `app/composer.lock`.
-- PostgreSQL, Redis, RabbitMQ; Doctrine DBAL/ORM и Migrations. Наличие ORM не означает, что модели курсов хранятся через ORM.
+- PostgreSQL, Redis, RabbitMQ; Doctrine DBAL и Migrations. ORM не установлен; модели сохраняются через DBAL.
 - Во всех новых PHP-файлах — `declare(strict_types=1);`, типизированные параметры и возвращаемые значения.
 - Конфигурация Symfony — PHP в `app/config/`. YAML используется для Compose и Deptrac; запрет на YAML относится к конфигурации Symfony.
 - PHPStan — level `max`, PHP CS Fixer, Deptrac; настройки находятся в `app/`.
@@ -79,7 +79,7 @@ app/src/
 
 | Слой | Допустимые зависимости |
 |---|---|
-| Domain | Собственные доменные типы, Shared.Domain; разрешённые Deptrac API DatePoint, Doctrine Mapping/Collections |
+| Domain | Собственные доменные типы, Shared.Domain; разрешённый Deptrac API DatePoint |
 | Application | Domain, Shared.Domain, Shared.Contracts, Application-контракты Support; DatePoint, ClockInterface, DI-атрибуты Symfony, PSR |
 | Infrastructure | Domain, Application, Shared, Application-контракты Support, внешние библиотеки |
 | Endpoints | Application, Domain, общие типы и транспортные API Symfony; без конкретных Infrastructure-реализаций |
@@ -131,7 +131,7 @@ app/src/
 3. Отсутствие данных — `RateSetNotFound`; сбой кеша — `RateSetCacheFailure`. Resolver логирует сбой кеша и продолжает работу. Ошибки БД, конфликты и ошибки источника не превращаются в cache miss.
 
 - `rate_sets`: один набор на `effective_date`, котировки в JSONB. `rate_request_dates`: точное соответствие `requested_date → effective_date`. Не подбирать ближайшую дату SQL-запросом.
-- `DoctrineRateSetRepository` использует DBAL. Эти таблицы обслуживаются миграциями и исключены из ORM SchemaTool через schema_filter.
+- `DoctrineRateSetRepository` использует DBAL. Таблицы обслуживаются миграциями; ORM SchemaTool и schema_filter не используются.
 - `save()` атомарно сохраняет набор и календарную связь. Повтор идентичных данных допустим; изменение содержимого или подтверждённой связи вызывает `RateSetConflict`. Сохраняй поведение конкурентных INSERT и последующего отдельного SELECT при READ COMMITTED.
 - Redis хранит полный набор под `rateset:date:YYYY-MM-DD` с TTL из `CACHE_DEFAULT_TTL`. Общий `RateSetMapper` используется для хранения; он не заменяет маппер внешнего ответа ЦБ.
 - Refresh проверяет дату, получает все связанные даты, удаляет их кеш (либо ключ исходной даты, если связей нет), удаляет набор через репозиторий и повторно вызывает Provider для запрошенной даты.
@@ -203,3 +203,11 @@ make cs-fix                           # изменяет форматирова�
 - Старый FQCN сообщения поддерживает временный class_alias в Import/Infrastructure/Messenger/legacy-message.php, подключённый Composer files. Не удалять совместимость до освобождения старых очередей и failed transport. Новые сообщения используют Import/Application/Message, прежнюю очередь rates_import.
 - Корреляционные идентификаторы принадлежат Support/Logging/Application/IncidentId, не Import. XML и файловые каналы логирования сохраняются.
 - Unit-тесты импорта находятся в tests/Unit/Import, PostgreSQL/E2E — tests/Integration/Import, subprocess гонок — tests/Fixtures/Import. Для полного прогона обязательны изолированные PostgreSQL, Redis, RabbitMQ и CBR Stub.
+
+## Зависимости и сборка
+
+- ORM, Twig, WebProfiler, DebugBundle, Validator и Scheduler не установлены: не добавлять их ради шаблонной конфигурации Symfony. Планирование импорта выполняет собственная команда Dispatcher.
+- DoctrineBundle и MigrationsBundle нужны для DBAL Connection и миграций; phpstan-doctrine оставлен ради анализа DBAL, а не ORM.
+- Serializer, PropertyInfo, PropertyAccess, reflection-docblock и phpdoc-parser используются для преобразования XML ЦБ в типизированные DTO, включая коллекции. Не удалять их только из-за отсутствия прямых импортов в бизнес-коде.
+- BrowserKit нужен Application-тестам. Stopwatch остаётся транзитивной зависимостью Doctrine Migrations и CS Fixer; отдельный require-dev не нужен.
+- ext-intl и ICU сохранены: FrameworkBundle при отсутствии intl выдаёт deprecation о производительности. Удаление прямых вызовов Intl из бизнес-кода само по себе не означает ненужность расширения для Symfony.

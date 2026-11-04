@@ -40,8 +40,7 @@ $repository->save($rateSet->effectiveDate, $rateSet);
 | `rate_request_dates` | `requested_date DATE PRIMARY KEY`, `effective_date DATE NOT NULL REFERENCES rate_sets(effective_date)`     |
 
 Один набор хранится на одну дату действия. Несколько дат запроса ссылаются на него без дублирования котировок.
-`created_at` устанавливается при первой вставке. Таблицы обслуживаются DBAL и миграцией; ORM SchemaTool исключает их
-через `schema_filter`.
+`created_at` устанавливается при первой вставке. Таблицы обслуживаются DBAL и миграцией. ORM и ORM SchemaTool не используются.
 
 `save()` использует одну транзакцию PostgreSQL с обычным уровнем изоляции READ COMMITTED. Для каждой таблицы выполняется
 INSERT с `ON CONFLICT DO NOTHING RETURNING`. При конфликте отдельный SELECT читает зафиксированную конкурентную запись.

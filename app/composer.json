@@ -18,7 +18,6 @@
         "doctrine/dbal": "*",
         "doctrine/doctrine-bundle": "*",
         "doctrine/doctrine-migrations-bundle": "*",
-        "doctrine/orm": "*",
         "phpdocumentor/reflection-docblock": "^6.0",
         "phpstan/phpdoc-parser": "^2.3",
         "symfony/amqp-messenger": "7.4.*",
@@ -36,9 +35,7 @@
         "symfony/property-info": "7.4.*",
         "symfony/rate-limiter": "7.4.*",
         "symfony/runtime": "7.4.*",
-        "symfony/scheduler": "7.4.*",
-        "symfony/serializer": "7.4.*",
-        "symfony/validator": "7.4.*"
+        "symfony/serializer": "7.4.*"
     },
     "require-dev": {
         "deptrac/deptrac": "*",
@@ -48,15 +45,11 @@
         "phpstan/phpstan-doctrine": "*",
         "phpstan/phpstan-phpunit": "*",
         "phpstan/phpstan-symfony": "*",
-        "phpunit/phpunit": "*",
-        "symfony/browser-kit": "7.4.*",
-        "symfony/debug-bundle": "7.4.*",
-        "symfony/stopwatch": "7.4.*",
-        "symfony/web-profiler-bundle": "7.4.*"
+        "phpunit/phpunit": ">=13.4.4",
+        "symfony/browser-kit": "7.4.*"
     },
     "config": {
         "allow-plugins": {
-            "php-http/discovery": true,
             "symfony/flex": true,
             "symfony/runtime": true,
             "phpstan/extension-installer": true

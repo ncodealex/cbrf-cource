@@ -17,9 +17,6 @@ return [
         'php_errors' => [
             'log' => true,
         ],
-        'validation' => [
-            'enabled' => true,
-        ],
         'serializer' => [
             'enabled' => true,
         ],
@@ -36,9 +33,6 @@ return [
     'when@test' => [
         'framework' => [
             'test' => true,
-            'validation' => [
-                'not_compromised_password' => false,
-            ],
         ],
     ],
     'when@prod' => [

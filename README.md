@@ -11,15 +11,15 @@
 | Компонент | Версия |
 |---|---|
 | PHP (CLI, Alpine) | 8.4.27 — расширения pdo_pgsql, bcmath, intl, opcache, pcntl, redis 6.3.0, amqp 2.2.0 |
-| Symfony | 7.4 LTS (Framework, Messenger + AMQP, Cache, HttpClient, Validator, Serializer, Monolog) |
-| Doctrine | ORM 3.7, DBAL 4.5, Migrations 3.9 (DoctrineBundle 3.3) |
+| Symfony | 7.4 LTS (Framework, Messenger + AMQP, Cache, HttpClient, Serializer, Monolog) |
+| Doctrine | DBAL 4.5, Migrations 3.9 (DoctrineBundle 3.3) |
 | PostgreSQL | 18.6 |
 | Redis | 8.10.2 |
 | RabbitMQ | 4.3.6 + Management UI |
 | Nginx | 1.30.6 |
 | Traefik (только dev) | v3.6.4 |
 | Composer | 2.10.3 |
-| Тесты и качество | PHPUnit 13, PHPStan 2 (level max), PHP CS Fixer 3, Deptrac 4, Xdebug 3.5 (dev), Symfony Debug/Web Profiler (dev) |
+| Тесты и качество | PHPUnit 13, PHPStan 2 (level max), PHP CS Fixer 3, Deptrac 4, Xdebug 3.5 (dev) |
 
 ## 3. Архитектура проекта
 
@@ -48,8 +48,7 @@ compose.test.yaml  отдельные тестовые сервисы без о�
   Domain не зависит от фреймворка; Application — от Domain и абстракций; Infrastructure реализует контракты;
   Presentation — HTTP и Console. Правила проверяет Deptrac (`make qa`). Сервисы настраиваются атрибутами
   (`#[Route]`, `#[AutowireIterator]`, `#[Autowire]`, `#[AutoconfigureTag]` ...), в `services.php` — только
-  resource/exclude, параметры и фабрики. Из фреймворка в Domain разрешены только атрибуты маппинга Doctrine ORM,
-  Doctrine Collections и `DatePoint`; в Application — дополнительно DI-атрибуты Symfony и PSR-интерфейсы
+  resource/exclude, параметры и фабрики. Из фреймворка в Domain разрешён только `DatePoint`; в Application — дополнительно DI-атрибуты Symfony и PSR-интерфейсы
   (`app/deptrac.yaml`).
 
 ## 4. Как поднять проект
@@ -91,8 +90,6 @@ make qa      # PHP CS Fixer, PHPStan, Deptrac; make cs-fix — исправит�
   `make dev`: образ пересоберётся.
 - Xdebug: `XDEBUG_MODE=debug` в `.env` и `make dev`; IDE слушает порт 9003, server name — `starter`
   (маппинг `app/` → `/app`). Отладка запускается триггером (`XDEBUG_SESSION` cookie/параметр).
-- Symfony Profiler: http://localhost:8080/_profiler (или http://app.localhost/_profiler). Ссылка на профиль
-  конкретного API-запроса приходит в заголовке ответа `X-Debug-Token-Link`.
 
 ## 6. Как протестировать
 
