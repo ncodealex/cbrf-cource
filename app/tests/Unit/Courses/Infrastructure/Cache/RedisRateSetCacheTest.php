@@ -12,6 +12,7 @@ use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Courses\Domain\RateSets;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Cache\Exception\InvalidArgumentException as RedisConnectionFailure;
 
 final class RedisRateSetCacheTest extends TestCase
 {
@@ -51,6 +52,20 @@ final class RedisRateSetCacheTest extends TestCase
         new RedisRateSetCache($redis, new RateSetMapper(), 60)->get(DatePointParser::parse('2026-10-26'));
     }
 
+    public function testLazyConnectionFailureIsNotMiss(): void
+    {
+        $failure = new RedisConnectionFailure('Redis connection failed');
+        $redis = $this->createMock(\Redis::class);
+        $redis->expects(self::once())->method('get')->willThrowException($failure);
+
+        try {
+            new RedisRateSetCache($redis, new RateSetMapper(), 60)->get(DatePointParser::parse('2026-10-26'));
+            self::fail('Ожидался сбой кеша');
+        } catch (RateSetCacheFailure $e) {
+            self::assertSame($failure, $e->getPrevious());
+        }
+    }
+
     public function testWriteFailure(): void
     {
         $redis = $this->createMock(\Redis::class);
@@ -73,6 +88,23 @@ final class RedisRateSetCacheTest extends TestCase
         );
     }
 
+    public function testLazyWriteConnectionFailure(): void
+    {
+        $failure = new RedisConnectionFailure('Redis connection failed');
+        $redis = $this->createMock(\Redis::class);
+        $redis->expects(self::once())->method('set')->willThrowException($failure);
+
+        try {
+            new RedisRateSetCache($redis, new RateSetMapper(), 60)->put(
+                DatePointParser::parse('2026-10-26'),
+                RateSets::saturday(),
+            );
+            self::fail('Ожидался сбой кеша');
+        } catch (RateSetCacheFailure $e) {
+            self::assertSame($failure, $e->getPrevious());
+        }
+    }
+
     public function testDeletesRequestedDatesWithSingleRedisCommand(): void
     {
         $redis = $this->createMock(\Redis::class);
@@ -85,6 +117,22 @@ final class RedisRateSetCacheTest extends TestCase
             DatePointParser::parse('1994-02-01'),
             DatePointParser::parse('1994-02-02'),
         );
+    }
+
+    public function testLazyDeleteConnectionFailure(): void
+    {
+        $failure = new RedisConnectionFailure('Redis connection failed');
+        $redis = $this->createMock(\Redis::class);
+        $redis->expects(self::once())->method('del')->willThrowException($failure);
+
+        try {
+            new RedisRateSetCache($redis, new RateSetMapper(), 60)->delete(
+                DatePointParser::parse('1994-02-01'),
+            );
+            self::fail('Ожидался сбой кеша');
+        } catch (RateSetCacheFailure $e) {
+            self::assertSame($failure, $e->getPrevious());
+        }
     }
 
     public function testRejectsNonPositiveTtl(): void
