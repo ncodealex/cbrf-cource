@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Domain;
 
-use App\Cources\Domain\Exception\ExchangeRate\RateNotFoundForDate;
-use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Courses\Domain\Exception\ExchangeRate\RateNotFoundForDate;
+use App\Courses\Domain\ValueObject\CurrencyCode;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 final class RateSetTest extends TestCase
@@ -26,12 +27,12 @@ final class RateSetTest extends TestCase
         self::assertSame('Российский рубль', RateSets::saturday()->get(CurrencyCode::rub())->name);
         self::assertSame(1, RateSets::saturday()->get(CurrencyCode::rub())->nominal);
         self::assertNull(RateSets::saturday()->get(CurrencyCode::rub())->sourceId);
-        self::assertSame('1', (string) RateSets::saturday()->get(CurrencyCode::rub())->unit());
+        self::assertSame('1', (string)RateSets::saturday()->get(CurrencyCode::rub())->unit());
     }
 
     public function testRejectsDuplicateQuote(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('повторяется валюта USD');
 
         RateSets::create('2026-10-24', [['USD', 'R01235', 1, '81.45'], ['usd', 'R01235', 1, '81.46']]);
@@ -39,14 +40,14 @@ final class RateSetTest extends TestCase
 
     public function testRejectsRubleQuote(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         RateSets::create('2026-10-24', [['RUR', 'R00000', 1, '1']]);
     }
 
     public function testRejectsEmptySet(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         RateSets::create('2026-10-24', []);
     }
@@ -68,7 +69,8 @@ final class RateSetTest extends TestCase
         self::assertNotSame($base, RateSets::create('2026-10-24', [['USD', 'R01235', 1, '81.45']])->contentHash());
         self::assertNotSame($base, RateSets::create('2026-10-24', [['USD', 'R01235', 10, '81.4500']])->contentHash());
         self::assertNotSame($base, RateSets::create('2026-10-23', [['USD', 'R01235', 1, '81.4500']])->contentHash());
-        self::assertNotSame($base, RateSets::create('2026-10-24', [['USD', 'R01235', 1, '81.4500', 'Доллар США']])->contentHash());
+        self::assertNotSame($base,
+            RateSets::create('2026-10-24', [['USD', 'R01235', 1, '81.4500', 'Доллар США']])->contentHash());
         self::assertNotSame($base, RateSets::create('2026-10-24', [['USD', 'R99999', 1, '81.4500']])->contentHash());
     }
 }

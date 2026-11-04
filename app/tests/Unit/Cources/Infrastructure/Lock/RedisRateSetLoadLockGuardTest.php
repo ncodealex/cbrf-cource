@@ -4,15 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Infrastructure\Lock;
 
-use App\Cources\Application\Exception\RateSetLoadLockFailure;
-use App\Cources\Infrastructure\Lock\RedisRateSetLoadLockGuard;
+use App\Courses\Application\Exception\RateSetLoadLockFailure;
+use App\Courses\Infrastructure\Lock\RedisRateSetLoadLockGuard;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Symfony\Component\Lock\LockInterface;
 
 final class RedisRateSetLoadLockGuardTest extends TestCase
 {
+    /**
+     * @return iterable<string, array{bool, bool}>
+     */
+    public static function lostOwnership(): iterable
+    {
+        yield 'истёк TTL' => [true, true];
+        yield 'ресурс больше не принадлежит владельцу' => [false, false];
+    }
+
     public function testRefreshesOwnedLock(): void
     {
         $lock = $this->createMock(LockInterface::class);
@@ -21,15 +31,6 @@ final class RedisRateSetLoadLockGuardTest extends TestCase
         $lock->expects(self::once())->method('refresh')->with(30.0);
 
         new RedisRateSetLoadLockGuard($lock, 30.0, new NullLogger(), [])->refresh();
-    }
-
-    /**
-     * @return iterable<string, array{bool, bool}>
-     */
-    public static function lostOwnership(): iterable
-    {
-        yield 'истёк TTL' => [true, true];
-        yield 'ресурс больше не принадлежит владельцу' => [false, false];
     }
 
     #[DataProvider('lostOwnership')]
@@ -44,15 +45,15 @@ final class RedisRateSetLoadLockGuardTest extends TestCase
             new RedisRateSetLoadLockGuard($lock, 30.0, new NullLogger(), [])->refresh();
             self::fail('Ожидалась потеря владения');
         } catch (RateSetLoadLockFailure $e) {
-            self::assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            self::assertInstanceOf(RuntimeException::class, $e->getPrevious());
             self::assertNull($e->retryAt());
         }
     }
 
     public function testRefreshFailurePreservesPrevious(): void
     {
-        $failure = new \RuntimeException('Redis недоступен');
-        $lock = $this->createStub(LockInterface::class);
+        $failure = new RuntimeException('Redis недоступен');
+        $lock    = $this->createStub(LockInterface::class);
         $lock->method('isExpired')->willReturn(false);
         $lock->method('isAcquired')->willReturn(true);
         $lock->method('refresh')->willThrowException($failure);

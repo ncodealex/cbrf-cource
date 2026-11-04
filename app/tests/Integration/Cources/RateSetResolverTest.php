@@ -4,20 +4,22 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Cources;
 
-use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
-use App\Cources\Application\Contract\RateSetLoadLockInterface;
-use App\Cources\Application\Service\RateSetResolver;
-use App\Cources\Infrastructure\Cache\RedisRateSetCache;
-use App\Cources\Infrastructure\Cbr\CbrRateSetGateway;
-use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
-use App\Cources\Infrastructure\Cbr\RetryAfterParser;
-use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
+use App\Courses\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
+use App\Courses\Application\Contract\RateSetLoadLockInterface;
+use App\Courses\Application\Service\RateSetResolver;
+use App\Courses\Infrastructure\Cache\RedisRateSetCache;
+use App\Courses\Infrastructure\Cbr\CbrRateSetGateway;
+use App\Courses\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
+use App\Courses\Infrastructure\Cbr\RetryAfterParser;
+use App\Courses\Infrastructure\Persistence\DoctrineRateSetRepository;
 use App\Shared\Domain\DatePointParser;
 use App\Support\RateLimiter\Application\RateLimitDecision;
 use App\Support\RateLimiter\Application\RequestRateLimiter;
 use App\Tests\Fixtures\Cbr\CbrFixtures;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
+use Redis;
+use ReflectionClass;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -36,9 +38,9 @@ final class RateSetResolverTest extends RateSetStorageTestCase
 
     public function testContainerWiresContracts(): void
     {
-        $container = self::getContainer();
-        $resolver = $container->get('test.rateset_resolver');
-        $reflection = new \ReflectionClass($resolver);
+        $container  = self::getContainer();
+        $resolver   = $container->get('test.rateset_resolver');
+        $reflection = new ReflectionClass($resolver);
         self::assertInstanceOf(
             DoctrineRateSetRepository::class,
             $reflection->getProperty('repository')->getValue($resolver),
@@ -54,18 +56,18 @@ final class RateSetResolverTest extends RateSetStorageTestCase
     #[DataProvider('redisAvailability')]
     public function testFullResolutionAndSubsequentHits(bool $available): void
     {
-        $redis = $available ? self::getContainer()->get(\Redis::class) : new \Redis();
-        $date = DatePointParser::parse('2100-01-01')->modify('+'.random_int(0, 100000).' days');
-        $key = 'rateset:date:'.$date->format('Y-m-d');
-        $client = new MockHttpClient(
+        $redis       = $available ? self::getContainer()->get(Redis::class) : new Redis();
+        $date        = DatePointParser::parse('2100-01-01')->modify('+' . random_int(0, 100000) . ' days');
+        $key         = 'rateset:date:' . $date->format('Y-m-d');
+        $client      = new MockHttpClient(
             new MockResponse(CbrFixtures::load('daily_2026-10-24.xml')),
             'https://www.cbr.ru',
         );
-        $repository = new DoctrineRateSetRepository($this->connection, $this->mapper);
+        $repository  = new DoctrineRateSetRepository($this->connection, $this->mapper);
         $rateLimiter = $this->createStub(RequestRateLimiter::class);
         $rateLimiter->method('acquire')->willReturn(new RateLimitDecision(true, new DatePoint()));
         $datePolicy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
-        $resolver = new RateSetResolver(
+        $resolver   = new RateSetResolver(
             new RedisRateSetCache($redis, $this->mapper, 60),
             $repository,
             new CbrRateSetGateway(

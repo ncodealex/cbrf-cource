@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Fixtures\Cbr;
 
-use App\Cources\Infrastructure\Cbr\Serializer\RateSetResponseDenormalizer;
+use App\Courses\Infrastructure\Cbr\Serializer\RateSetResponseDenormalizer;
 use Symfony\Component\PropertyInfo\Extractor\ConstructorExtractor;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -27,11 +27,18 @@ final class CbrSerializer
         $metadata = new ClassMetadataFactory(new AttributeLoader());
         $phpDoc = new PhpDocExtractor();
         $reflection = new ReflectionExtractor();
-        $types = new PropertyInfoExtractor(typeExtractors: [new ConstructorExtractor([$phpDoc, $reflection]), $phpDoc, $reflection]);
-        $normalizer = new ObjectNormalizer($metadata, new MetadataAwareNameConverter($metadata), propertyTypeExtractor: $types);
+        $types = new PropertyInfoExtractor(typeExtractors: [
+            new ConstructorExtractor([$phpDoc, $reflection]),
+            $phpDoc,
+            $reflection,
+        ]);
+        $normalizer = new ObjectNormalizer($metadata, new MetadataAwareNameConverter($metadata),
+            propertyTypeExtractor: $types);
 
         return new Serializer([
-            new RateSetResponseDenormalizer($normalizer), new ArrayDenormalizer(), $normalizer,
+            new RateSetResponseDenormalizer($normalizer),
+            new ArrayDenormalizer(),
+            $normalizer,
         ], [new XmlEncoder()]);
     }
 }

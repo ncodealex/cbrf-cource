@@ -1,60 +1,60 @@
 # Явные границы бизнес-модулей. Межмодульный API — только Shared.Contracts.
 deptrac:
-    paths: [./src]
-    exclude_files: ['#.*Kernel\.php$#']
+    paths: [ ./src ]
+    exclude_files: [ '#.*Kernel\.php$#' ]
     layers:
-        - name: Import.Domain
-          collectors:
-              - type: directory
-                value: src/Import/Domain/.*
-        - name: Import.Application
-          collectors:
-              - type: directory
-                value: src/Import/Application/.*
-        - name: Import.Infrastructure
-          collectors:
-              - type: directory
-                value: src/Import/Infrastructure/.*
-        - name: Import.Endpoints
-          collectors:
-              - type: directory
-                value: src/Import/Endpoints/.*
-        - name: Cources.Domain
-          collectors:
-              - type: directory
-                value: src/Cources/Domain/.*
-        - name: Cources.Application
-          collectors:
-              - type: directory
-                value: src/Cources/Application/.*
-        - name: Cources.Infrastructure
-          collectors:
-              - type: directory
-                value: src/Cources/Infrastructure/.*
-        - name: Cources.Endpoints
-          collectors:
-              - type: directory
-                value: src/Cources/Endpoints/.*
-        - name: Shared.Contracts
-          collectors:
-              - type: directory
-                value: src/Shared/Contracts/.*
-        - name: Shared.Domain
-          collectors:
-              - type: directory
-                value: src/Shared/Domain/.*
-        - name: Support.Application
-          collectors:
-              - type: directory
-                value: src/Support/[^/]+/Application/.*
-        - name: Support.Infrastructure
-          collectors:
-              - type: directory
-                value: src/Support/[^/]+/Infrastructure/.*
-        - name: Support.Endpoints
-          collectors:
-              - type: directory
-                value: src/Support/[^/]+/Endpoints/.*
+        -   name: Import.Domain
+            collectors:
+                -   type: directory
+                    value: src/Import/Domain/.*
+        -   name: Import.Application
+            collectors:
+                -   type: directory
+                    value: src/Import/Application/.*
+        -   name: Import.Infrastructure
+            collectors:
+                -   type: directory
+                    value: src/Import/Infrastructure/.*
+        -   name: Import.Endpoints
+            collectors:
+                -   type: directory
+                    value: src/Import/Endpoints/.*
+        -   name: Cources.Domain
+            collectors:
+                -   type: directory
+                    value: src/Cources/Domain/.*
+        -   name: Cources.Application
+            collectors:
+                -   type: directory
+                    value: src/Cources/Application/.*
+        -   name: Cources.Infrastructure
+            collectors:
+                -   type: directory
+                    value: src/Cources/Infrastructure/.*
+        -   name: Cources.Endpoints
+            collectors:
+                -   type: directory
+                    value: src/Cources/Endpoints/.*
+        -   name: Shared.Contracts
+            collectors:
+                -   type: directory
+                    value: src/Shared/Contracts/.*
+        -   name: Shared.Domain
+            collectors:
+                -   type: directory
+                    value: src/Shared/Domain/.*
+        -   name: Support.Application
+            collectors:
+                -   type: directory
+                    value: src/Support/[^/]+/Application/.*
+        -   name: Support.Infrastructure
+            collectors:
+                -   type: directory
+                    value: src/Support/[^/]+/Infrastructure/.*
+        -   name: Support.Endpoints
+            collectors:
+                -   type: directory
+                    value: src/Support/[^/]+/Endpoints/.*
         # Symfony Clock DatePoint — неизменяемый тип даты/времени, допустим в доменных моделях
         -   name: Symfony.DatePoint
             collectors:

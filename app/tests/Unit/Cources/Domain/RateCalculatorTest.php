@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Domain;
 
-use App\Cources\Domain\CurrencyPair;
-use App\Cources\Domain\Exception\ExchangeRate\PreviousRateNotFound;
-use App\Cources\Domain\Exception\ExchangeRate\RateNotFoundForDate;
-use App\Cources\Domain\ExchangeRateCalculator;
-use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Courses\Domain\CurrencyPair;
+use App\Courses\Domain\Exception\ExchangeRate\PreviousRateNotFound;
+use App\Courses\Domain\Exception\ExchangeRate\RateNotFoundForDate;
+use App\Courses\Domain\ExchangeRateCalculator;
+use App\Courses\Domain\ValueObject\CurrencyCode;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -39,7 +40,12 @@ final class RateCalculatorTest extends TestCase
     {
         $rate = $this->calculator->rate(RateSets::saturday(), $this->pair($currency, $base));
 
-        self::assertSame($expected, (string) $rate);
+        self::assertSame($expected, (string)$rate);
+    }
+
+    private function pair(string $currency, string $base = CurrencyCode::RUB): CurrencyPair
+    {
+        return new CurrencyPair(CurrencyCode::fromString($currency), CurrencyCode::fromString($base));
     }
 
     public function testCrossRateAccountsForNominalsOfBothCurrencies(): void
@@ -47,7 +53,7 @@ final class RateCalculatorTest extends TestCase
         // 1 INR = 96.8790/100 RUB, 1 IDR = 49.8765/10000 RUB.
         $rate = $this->calculator->rate(RateSets::saturday(), $this->pair('INR', 'IDR'));
 
-        self::assertSame('194.237767285194430242699467685182', (string) $rate);
+        self::assertSame('194.237767285194430242699467685182', (string)$rate);
     }
 
     public function testDiffIsComputedFromUnroundedRates(): void
@@ -56,9 +62,9 @@ final class RateCalculatorTest extends TestCase
 
         self::assertSame('2026-10-24', $rate->effectiveDate->format('Y-m-d'));
         self::assertSame('2026-10-23', $rate->previousEffectiveDate->format('Y-m-d'));
-        self::assertSame('0.011894290976058931860036832412', (string) $rate->rate);
-        self::assertSame('0.011884236453201970443349753694', (string) $rate->previousRate);
-        self::assertSame('0.000010054522856961416687078718', (string) $rate->diff);
+        self::assertSame('0.011894290976058931860036832412', (string)$rate->rate);
+        self::assertSame('0.011884236453201970443349753694', (string)$rate->previousRate);
+        self::assertSame('0.000010054522856961416687078718', (string)$rate->diff);
     }
 
     public function testRoundingBeforeSubtractionWouldHideRealChange(): void
@@ -68,7 +74,7 @@ final class RateCalculatorTest extends TestCase
         // Ошибочный подход: округлить оба курса до 4 знаков, затем вычесть.
         $naive = $rate->rate->round(4)->sub($rate->previousRate->round(4));
 
-        self::assertSame('0.0000', (string) $naive);
+        self::assertSame('0.0000', (string)$naive);
         self::assertSame(1, $rate->diff->compare(0));
     }
 
@@ -76,9 +82,9 @@ final class RateCalculatorTest extends TestCase
     {
         $rate = $this->calculator->calculate(RateSets::saturday(), RateSets::friday(), $this->pair('USD'));
 
-        self::assertSame('81.4500', (string) $rate->rate);
-        self::assertSame('81.2000', (string) $rate->previousRate);
-        self::assertSame('0.2500', (string) $rate->diff);
+        self::assertSame('81.4500', (string)$rate->rate);
+        self::assertSame('81.2000', (string)$rate->previousRate);
+        self::assertSame('0.2500', (string)$rate->diff);
     }
 
     public function testResultIncludesOfficialQuoteForUi(): void
@@ -93,8 +99,8 @@ final class RateCalculatorTest extends TestCase
         self::assertSame('R01270', $result->currentRateItem->sourceId);
         self::assertSame('Индийских рупий', $result->currentRateItem->name);
         self::assertSame(100, $result->currentRateItem->nominal);
-        self::assertSame('96.8790', (string) $result->currentRateItem->value);
-        self::assertSame('0.011894290976058931860036832412', (string) $result->rate);
+        self::assertSame('96.8790', (string)$result->currentRateItem->value);
+        self::assertSame('0.011894290976058931860036832412', (string)$result->rate);
     }
 
     public function testRubleHasSyntheticRateItem(): void
@@ -106,7 +112,7 @@ final class RateCalculatorTest extends TestCase
         );
 
         self::assertSame('RUB', $result->currentRateItem->code->value);
-        self::assertSame('1', (string) $result->currentRateItem->value);
+        self::assertSame('1', (string)$result->currentRateItem->value);
         self::assertSame('Российский рубль', $result->currentRateItem->name);
         self::assertSame('USD', $result->baseRateItem->code->value);
     }
@@ -114,13 +120,13 @@ final class RateCalculatorTest extends TestCase
     public function testRubleAgainstEuroUsesInverseRateAndEuroQuote(): void
     {
         $current = RateSets::saturday();
-        $result = $this->calculator->calculate($current, RateSets::friday(), $this->pair('RUB', 'EUR'));
+        $result  = $this->calculator->calculate($current, RateSets::friday(), $this->pair('RUB', 'EUR'));
 
         self::assertSame('RUB', $result->currentRateItem->code->value);
-        self::assertSame('1', (string) $result->currentRateItem->value);
+        self::assertSame('1', (string)$result->currentRateItem->value);
         self::assertSame('Российский рубль', $result->currentRateItem->name);
         self::assertSame('EUR', $result->baseRateItem->code->value);
-        self::assertSame('0.010624350586570395884551556786', (string) $result->rate);
+        self::assertSame('0.010624350586570395884551556786', (string)$result->rate);
         self::assertSame(30, $result->rate->scale);
     }
 
@@ -129,21 +135,21 @@ final class RateCalculatorTest extends TestCase
         $rate = $this->calculator->calculate(RateSets::saturday(), RateSets::friday(), $this->pair('EUR', 'CNY'));
 
         self::assertSame(-1, $rate->diff->compare(0));
-        self::assertSame('-0.002757857867084523919255230897', (string) $rate->diff);
+        self::assertSame('-0.002757857867084523919255230897', (string)$rate->diff);
     }
 
     public function testDiffIsNotDerivedFromRoundedCrossRates(): void
     {
         $rate = $this->calculator->calculate(RateSets::saturday(), RateSets::friday(), $this->pair('EUR', 'CNY'));
 
-        self::assertSame('-0.002757857867084523919255230897', (string) $rate->diff);
-        self::assertSame('-0.0027', (string) $rate->rate->round(4)->sub($rate->previousRate->round(4)));
+        self::assertSame('-0.002757857867084523919255230897', (string)$rate->diff);
+        self::assertSame('-0.0027', (string)$rate->rate->round(4)->sub($rate->previousRate->round(4)));
     }
 
     public function testZeroDiff(): void
     {
         $friday = RateSets::create('2026-10-23', [['USD', 'R01235', 1, '81.4500']]);
-        $rate = $this->calculator->calculate(RateSets::saturday(), $friday, $this->pair('USD'));
+        $rate   = $this->calculator->calculate(RateSets::saturday(), $friday, $this->pair('USD'));
 
         self::assertSame(0, $rate->diff->compare(0));
     }
@@ -180,14 +186,9 @@ final class RateCalculatorTest extends TestCase
 
     public function testPreviousSetMustPrecedeCurrent(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         $this->calculator->calculate(RateSets::friday(), RateSets::saturday(), $this->pair('USD'));
-    }
-
-    private function pair(string $currency, string $base = CurrencyCode::RUB): CurrencyPair
-    {
-        return new CurrencyPair(CurrencyCode::fromString($currency), CurrencyCode::fromString($base));
     }
 
     protected function setUp(): void

@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Cources;
 
-use App\Cources\Infrastructure\Mapping\RateSetMapper;
+use App\Courses\Infrastructure\Mapping\RateSetMapper;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\Schema;
 use DoctrineMigrations\Version20261101000000;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use function dirname;
+use function sprintf;
 
 /**
  * @phpstan-import-type Params from DriverManager
@@ -18,31 +20,33 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 abstract class RateSetStorageTestCase extends KernelTestCase
 {
     protected Connection $connection;
+
     protected RateSetMapper $mapper;
+
     protected string $schema;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->schema = 'rateset_test_'.bin2hex(random_bytes(8));
+        $this->schema = 'rateset_test_' . bin2hex(random_bytes(8));
         /**
          * @var Params $params параметры существующего PostgreSQL-подключения
          */
-        $params = self::getContainer()->get(Connection::class)->getParams();
+        $params           = self::getContainer()->get(Connection::class)->getParams();
         $this->connection = DriverManager::getConnection($params);
-        $this->connection->executeStatement(\sprintf(
+        $this->connection->executeStatement(sprintf(
             <<<'SQL'
                 CREATE SCHEMA %s
                 SQL,
             $this->schema,
         ));
-        $this->connection->executeStatement(\sprintf(
+        $this->connection->executeStatement(sprintf(
             <<<'SQL'
                 SET search_path TO %s
                 SQL,
             $this->schema,
         ));
-        require_once \dirname(__DIR__, 3).'/migrations/Version20261101000000.php';
+        require_once dirname(__DIR__, 3) . '/migrations/Version20261101000000.php';
         $migration = new Version20261101000000($this->connection, new NullLogger());
         $migration->up(new Schema());
         foreach ($migration->getSql() as $query) {
@@ -60,7 +64,7 @@ abstract class RateSetStorageTestCase extends KernelTestCase
             $this->connection->rollBack();
         }
         // Удаляется только созданная этим тестом изолированная схема.
-        $this->connection->executeStatement(\sprintf(
+        $this->connection->executeStatement(sprintf(
             <<<'SQL'
                 DROP SCHEMA %s CASCADE
                 SQL,

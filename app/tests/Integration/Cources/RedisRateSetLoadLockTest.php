@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Cources;
 
-use App\Cources\Application\Contract\RateSetLoadLockGuard;
-use App\Cources\Application\Contract\RateSetLoadLockInterface;
-use App\Cources\Application\Exception\RateSetLoadBusy;
-use App\Cources\Application\Exception\RateSetLoadLockFailure;
-use App\Cources\Infrastructure\Lock\RedisRateSetLoadLock;
+use App\Courses\Application\Contract\RateSetLoadLockGuard;
+use App\Courses\Application\Contract\RateSetLoadLockInterface;
+use App\Courses\Application\Exception\RateSetLoadBusy;
+use App\Courses\Application\Exception\RateSetLoadLockFailure;
+use App\Courses\Infrastructure\Lock\RedisRateSetLoadLock;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use Psr\Log\NullLogger;
+use Redis;
+use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\Lock\LockFactory;
@@ -28,7 +30,7 @@ final class RedisRateSetLoadLockTest extends KernelTestCase
             $guard->refresh();
             $startedAt = microtime(true);
             try {
-                $lock->synchronized($date, static fn () => RateSets::saturday());
+                $lock->synchronized($date, static fn() => RateSets::saturday());
             } catch (RateSetLoadBusy $e) {
                 $busy = $e;
             }
@@ -42,19 +44,24 @@ final class RedisRateSetLoadLockTest extends KernelTestCase
         self::assertSame(RateSets::saturday()->contentHash(), $result->contentHash());
         self::assertSame(
             RateSets::saturday()->contentHash(),
-            $lock->synchronized($date, static fn () => RateSets::saturday())->contentHash(),
+            $lock->synchronized($date, static fn() => RateSets::saturday())->contentHash(),
         );
+    }
+
+    private function uniqueDate(): DatePoint
+    {
+        return new DatePoint('2100-01-01 +' . random_int(0, 100000) . ' days');
     }
 
     public function testDifferentDatesHaveIndependentLocks(): void
     {
-        $lock = self::getContainer()->get(RateSetLoadLockInterface::class);
-        $firstDate = $this->uniqueDate();
+        $lock       = self::getContainer()->get(RateSetLoadLockInterface::class);
+        $firstDate  = $this->uniqueDate();
         $secondDate = $firstDate->modify('+1 day');
 
         $result = $lock->synchronized(
             $firstDate,
-            static fn () => $lock->synchronized($secondDate, static fn () => RateSets::friday()),
+            static fn() => $lock->synchronized($secondDate, static fn() => RateSets::friday()),
         );
 
         self::assertSame(RateSets::friday()->contentHash(), $result->contentHash());
@@ -62,43 +69,38 @@ final class RedisRateSetLoadLockTest extends KernelTestCase
 
     public function testCallbackFailureIsPropagatedAndLockIsReleased(): void
     {
-        $lock = self::getContainer()->get(RateSetLoadLockInterface::class);
-        $date = $this->uniqueDate();
-        $failure = new \RuntimeException('Сбой операции');
+        $lock    = self::getContainer()->get(RateSetLoadLockInterface::class);
+        $date    = $this->uniqueDate();
+        $failure = new RuntimeException('Сбой операции');
 
         try {
             $lock->synchronized($date, static function () use ($failure): never {
                 throw $failure;
             });
             self::fail('Ожидался сбой операции');
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             self::assertSame($failure, $e);
         }
 
         self::assertSame(
             RateSets::saturday()->contentHash(),
-            $lock->synchronized($date, static fn () => RateSets::saturday())->contentHash(),
+            $lock->synchronized($date, static fn() => RateSets::saturday())->contentHash(),
         );
     }
 
     public function testUnavailableRedisFailsClosedAndPreservesCause(): void
     {
         $lock = new RedisRateSetLoadLock(
-            new LockFactory(new RedisStore(new \Redis())),
+            new LockFactory(new RedisStore(new Redis())),
             new NullLogger(),
             30.0,
         );
 
         try {
-            $lock->synchronized($this->uniqueDate(), static fn () => RateSets::saturday());
+            $lock->synchronized($this->uniqueDate(), static fn() => RateSets::saturday());
             self::fail('Ожидался сбой Redis Lock');
         } catch (RateSetLoadLockFailure $e) {
             self::assertNotNull($e->getPrevious());
         }
-    }
-
-    private function uniqueDate(): DatePoint
-    {
-        return new DatePoint('2100-01-01 +'.random_int(0, 100000).' days');
     }
 }

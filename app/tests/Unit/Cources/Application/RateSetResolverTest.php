@@ -4,45 +4,60 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Application;
 
-use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
-use App\Cources\Application\Contract\ExternalRateSetGatewayInterface;
-use App\Cources\Application\Contract\RateSetCacheInterface;
-use App\Cources\Application\Contract\RateSetLoadLockGuard;
-use App\Cources\Application\Contract\RateSetLoadLockInterface;
-use App\Cources\Application\Contract\RateSetRepositoryInterface;
-use App\Cources\Application\Exception\RateSetCacheFailure;
-use App\Cources\Application\Exception\RateSetConflict;
-use App\Cources\Application\Exception\RateSetLoadBusy;
-use App\Cources\Application\Exception\RateSetLoadLockFailure;
-use App\Cources\Application\Exception\RateSetNotFound;
-use App\Cources\Application\Service\RateSetResolver;
-use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
+use App\Courses\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
+use App\Courses\Application\Contract\ExternalRateSetGatewayInterface;
+use App\Courses\Application\Contract\RateSetCacheInterface;
+use App\Courses\Application\Contract\RateSetLoadLockGuard;
+use App\Courses\Application\Contract\RateSetLoadLockInterface;
+use App\Courses\Application\Contract\RateSetRepositoryInterface;
+use App\Courses\Application\Exception\RateSetCacheFailure;
+use App\Courses\Application\Exception\RateSetConflict;
+use App\Courses\Application\Exception\RateSetLoadBusy;
+use App\Courses\Application\Exception\RateSetLoadLockFailure;
+use App\Courses\Application\Exception\RateSetNotFound;
+use App\Courses\Application\Service\RateSetResolver;
+use App\Courses\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use Symfony\Component\Clock\DatePoint;
+use Throwable;
 
 final class RateSetResolverTest extends TestCase
 {
     private DatePoint $date;
+
     private RateSetCacheInterface&MockObject $cache;
+
     private RateSetRepositoryInterface&MockObject $repository;
+
     private ExternalRateSetGatewayInterface&MockObject $gateway;
+
     private ExternalRateSetGatewayDatePolicyInterface&MockObject $datePolicy;
+
     private RateSetLoadLockInterface&MockObject $loadLock;
 
-    protected function setUp(): void
+    /**
+     * @return iterable<string, array{Throwable}>
+     */
+    public static function lockFailures(): iterable
     {
-        $this->date = DatePointParser::parse('2026-10-26');
-        $this->cache = $this->createMock(RateSetCacheInterface::class);
-        $this->repository = $this->createMock(RateSetRepositoryInterface::class);
-        $this->gateway = $this->createMock(ExternalRateSetGatewayInterface::class);
-        $this->datePolicy = $this->createMock(ExternalRateSetGatewayDatePolicyInterface::class);
-        $this->loadLock = $this->createMock(RateSetLoadLockInterface::class);
-        $this->datePolicy->expects(self::once())->method('assertAllowed')->with($this->date);
+        yield 'занято' => [new RateSetLoadBusy()];
+        yield 'сбой Store' => [new RateSetLoadLockFailure()];
+    }
+
+    /**
+     * @return iterable<string, array{string, Throwable}>
+     */
+    public static function sourceFailures(): iterable
+    {
+        yield 'Gateway' => ['fetch', new CbrUnavailable('Ошибка ЦБ')];
+        yield 'Repository' => ['save', new RuntimeException('Ошибка PostgreSQL')];
+        yield 'конфликт' => ['save', new RateSetConflict('Конфликт курсов')];
     }
 
     public function testCacheHitSkipsDatabaseAndLock(): void
@@ -55,6 +70,18 @@ final class RateSetResolverTest extends TestCase
         $this->loadLock->expects(self::never())->method('synchronized');
 
         self::assertSame($set, $this->resolver()->resolve($this->date));
+    }
+
+    private function resolver(): RateSetResolver
+    {
+        return new RateSetResolver(
+            $this->cache,
+            $this->repository,
+            $this->gateway,
+            $this->datePolicy,
+            new NullLogger(),
+            $this->loadLock,
+        );
     }
 
     public function testDatabaseHitWarmsCacheWithoutLock(): void
@@ -84,11 +111,18 @@ final class RateSetResolverTest extends TestCase
         self::assertSame($set, $this->resolver()->resolve($this->date));
     }
 
+    private function executeLockCallback(?RateSetLoadLockGuard $guard = null): void
+    {
+        $guard ??= $this->createStub(RateSetLoadLockGuard::class);
+        $this->loadLock->expects(self::once())->method('synchronized')->with($this->date)
+            ->willReturnCallback(static fn(DatePoint $date, callable $operation) => $operation($guard));
+    }
+
     public function testGatewayResultIsSavedBeforeCacheAndGuardIsRefreshed(): void
     {
-        $set = RateSets::saturday();
+        $set    = RateSets::saturday();
         $events = [];
-        $guard = $this->createMock(RateSetLoadLockGuard::class);
+        $guard  = $this->createMock(RateSetLoadLockGuard::class);
         $guard->expects(self::exactly(2))->method('refresh')->willReturnCallback(
             static function () use (&$events): void {
                 $events[] = 'refresh';
@@ -119,17 +153,8 @@ final class RateSetResolverTest extends TestCase
         self::assertSame(['refresh', 'fetch', 'refresh', 'save', 'cache'], $events);
     }
 
-    /**
-     * @return iterable<string, array{\Throwable}>
-     */
-    public static function lockFailures(): iterable
-    {
-        yield 'занято' => [new RateSetLoadBusy()];
-        yield 'сбой Store' => [new RateSetLoadLockFailure()];
-    }
-
     #[DataProvider('lockFailures')]
-    public function testLockFailureSkipsGateway(\Throwable $failure): void
+    public function testLockFailureSkipsGateway(Throwable $failure): void
     {
         $this->cache->method('get')->willThrowException(new RateSetNotFound());
         $this->repository->expects(self::once())->method('get')->willThrowException(new RateSetNotFound());
@@ -141,18 +166,8 @@ final class RateSetResolverTest extends TestCase
         $this->resolver()->resolve($this->date);
     }
 
-    /**
-     * @return iterable<string, array{string, \Throwable}>
-     */
-    public static function sourceFailures(): iterable
-    {
-        yield 'Gateway' => ['fetch', new CbrUnavailable('Ошибка ЦБ')];
-        yield 'Repository' => ['save', new \RuntimeException('Ошибка PostgreSQL')];
-        yield 'конфликт' => ['save', new RateSetConflict('Конфликт курсов')];
-    }
-
     #[DataProvider('sourceFailures')]
-    public function testSourceFailurePropagatesWithoutCacheWrite(string $operation, \Throwable $failure): void
+    public function testSourceFailurePropagatesWithoutCacheWrite(string $operation, Throwable $failure): void
     {
         $set = RateSets::saturday();
         $this->cache->method('get')->willThrowException(new RateSetNotFound());
@@ -189,22 +204,14 @@ final class RateSetResolverTest extends TestCase
         self::assertSame($set, $this->resolver()->resolve($this->date));
     }
 
-    private function executeLockCallback(?RateSetLoadLockGuard $guard = null): void
+    protected function setUp(): void
     {
-        $guard ??= $this->createStub(RateSetLoadLockGuard::class);
-        $this->loadLock->expects(self::once())->method('synchronized')->with($this->date)
-            ->willReturnCallback(static fn (DatePoint $date, callable $operation) => $operation($guard));
-    }
-
-    private function resolver(): RateSetResolver
-    {
-        return new RateSetResolver(
-            $this->cache,
-            $this->repository,
-            $this->gateway,
-            $this->datePolicy,
-            new NullLogger(),
-            $this->loadLock,
-        );
+        $this->date       = DatePointParser::parse('2026-10-26');
+        $this->cache      = $this->createMock(RateSetCacheInterface::class);
+        $this->repository = $this->createMock(RateSetRepositoryInterface::class);
+        $this->gateway    = $this->createMock(ExternalRateSetGatewayInterface::class);
+        $this->datePolicy = $this->createMock(ExternalRateSetGatewayDatePolicyInterface::class);
+        $this->loadLock   = $this->createMock(RateSetLoadLockInterface::class);
+        $this->datePolicy->expects(self::once())->method('assertAllowed')->with($this->date);
     }
 }

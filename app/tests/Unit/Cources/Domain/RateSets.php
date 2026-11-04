@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Domain;
 
-use App\Cources\Domain\Entity\RateItem;
-use App\Cources\Domain\Entity\RateSet;
-use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Courses\Domain\Entity\RateItem;
+use App\Courses\Domain\Entity\RateSet;
+use App\Courses\Domain\ValueObject\CurrencyCode;
 use BcMath\Number;
+use DateTimeZone;
 use Symfony\Component\Clock\DatePoint;
 
 /**
@@ -29,6 +30,34 @@ final class RateSets
     }
 
     /**
+     * @param list<array{0: string, 1: string, 2: int, 3: numeric-string, 4?: string, 5?: string}> $quotes [code, sourceId, nominal, value, name?, numCode?]
+     */
+    public static function create(string $date, array $quotes): RateSet
+    {
+        return new RateSet(
+            new DatePoint($date . ' 00:00:00', new DateTimeZone('Europe/Moscow')),
+            array_map(
+                static fn(array $q): RateItem => self::quote(...$q),
+                $quotes,
+            ),
+        );
+    }
+
+    /**
+     * @param numeric-string $value
+     */
+    public static function quote(
+        string $code,
+        string $sourceId,
+        int $nominal,
+        string $value,
+        string $name = 'Валюта',
+        ?string $numCode = null
+    ): RateItem {
+        return new RateItem(CurrencyCode::fromString($code), $sourceId, $nominal, new Number($value), $name, $numCode);
+    }
+
+    /**
      * Суббота 24.10.2026 — текущий набор.
      */
     public static function saturday(): RateSet
@@ -40,27 +69,5 @@ final class RateSets
             ['INR', 'R01270', 100, '96.8790', 'Индийских рупий', '356'],
             ['IDR', 'R01280', 10000, '49.8765', 'Рупий', '360'],
         ]);
-    }
-
-    /**
-     * @param list<array{0: string, 1: string, 2: int, 3: numeric-string, 4?: string, 5?: string}> $quotes [code, sourceId, nominal, value, name?, numCode?]
-     */
-    public static function create(string $date, array $quotes): RateSet
-    {
-        return new RateSet(
-            new DatePoint($date.' 00:00:00', new \DateTimeZone('Europe/Moscow')),
-            array_map(
-                static fn (array $q): RateItem => self::quote(...$q),
-                $quotes,
-            ),
-        );
-    }
-
-    /**
-     * @param numeric-string $value
-     */
-    public static function quote(string $code, string $sourceId, int $nominal, string $value, string $name = 'Валюта', ?string $numCode = null): RateItem
-    {
-        return new RateItem(CurrencyCode::fromString($code), $sourceId, $nominal, new Number($value), $name, $numCode);
     }
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Domain;
 
-use App\Cources\Domain\CurrencyPair;
-use App\Cources\Domain\Exception\InvalidCurrencyCode;
-use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Courses\Domain\CurrencyPair;
+use App\Courses\Domain\Exception\InvalidCurrencyCode;
+use App\Courses\Domain\ValueObject\CurrencyCode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -25,12 +25,6 @@ final class CurrencyCodeTest extends TestCase
         yield 'RUB' => ['rub', 'RUB'];
     }
 
-    #[DataProvider('validCodes')]
-    public function testNormalizesInput(string $input, string $expected): void
-    {
-        self::assertSame($expected, CurrencyCode::fromString($input)->value);
-    }
-
     /**
      * @return iterable<string, array{string}>
      */
@@ -41,6 +35,12 @@ final class CurrencyCodeTest extends TestCase
         yield 'digit' => ['US1'];
         yield 'cyrillic' => ['доллар'];
         yield 'empty' => [''];
+    }
+
+    #[DataProvider('validCodes')]
+    public function testNormalizesInput(string $input, string $expected): void
+    {
+        self::assertSame($expected, CurrencyCode::fromString($input)->value);
     }
 
     #[DataProvider('invalidCodes')]
@@ -61,7 +61,7 @@ final class CurrencyCodeTest extends TestCase
     {
         $pair = new CurrencyPair(CurrencyCode::fromString('usd'), CurrencyCode::rub());
 
-        self::assertSame('USD/RUB', (string) $pair);
+        self::assertSame('USD/RUB', (string)$pair);
         self::assertTrue($pair->isExact());
     }
 
