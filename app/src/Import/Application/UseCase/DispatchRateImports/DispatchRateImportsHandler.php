@@ -9,8 +9,6 @@ use App\Import\Application\Contract\ImportJobRepositoryInterface;
 use App\Import\Application\Contract\RateImportJobPublisherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Throwable;
-use function count;
 
 final readonly class DispatchRateImportsHandler
 {
@@ -29,26 +27,28 @@ final readonly class DispatchRateImportsHandler
         $messages = $this->repository->reserveDispatch(
             $this->settings->batchSize,
             $this->settings->redispatchAfter,
-            $this->settings->maxUnclaimed
+            $this->settings->maxUnclaimed,
         );
-        $sent     = 0;
+        $sent = 0;
         // 2. Опубликовать каждое сообщение, записав отдельные сбои.
         foreach ($messages as $message) {
             try {
                 $this->publisher->publish($message);
                 ++$sent;
-            } catch (Throwable $e) {
+            } catch (\Throwable $e) {
                 $this->logger->error('Не удалось опубликовать задание импорта.', [
-                    'requested_date'  => $message->requestedDate,
-                    'version'         => $message->version,
+                    'requested_date' => $message->requestedDate,
+                    'version' => $message->version,
                     'exception_class' => $e::class,
                 ]);
             }
         }
         // 3. Зафиксировать число резервирований и успешных публикаций.
         if ([] !== $messages) {
-            $this->logger->info('Диспетчеризация заданий импорта.',
-                ['reserved' => count($messages), 'published' => $sent]);
+            $this->logger->info(
+                'Диспетчеризация заданий импорта.',
+                ['reserved' => \count($messages), 'published' => $sent],
+            );
         }
 
         return $sent;

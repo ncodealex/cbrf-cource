@@ -57,6 +57,11 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         }
     }
 
+    private function key(DatePoint $date): string
+    {
+        return 'rateset:date:'.$date->format(DateFormatInterface::ISO);
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -88,10 +93,5 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         } catch (\RedisException $e) {
             throw new RateSetCacheFailure('Не удалось удалить набор курсов из кеша', 0, $e);
         }
-    }
-
-    private function key(DatePoint $date): string
-    {
-        return 'rateset:date:'.$date->format(DateFormatInterface::ISO);
     }
 }

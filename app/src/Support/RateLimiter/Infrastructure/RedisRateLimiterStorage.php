@@ -26,10 +26,19 @@ final readonly class RedisRateLimiterStorage implements StorageInterface
         $ttl = $limiterState->getExpirationTime();
         $key = $this->key($limiterState->getId());
         $payload = serialize($limiterState);
-        $saved = null === $ttl ? $this->redis->set($key, $payload) : $this->redis->setex($key, max(1, $ttl), $payload);
+        $saved = null === $ttl ? $this->redis->set($key, $payload) : $this->redis->setex(
+            $key,
+            max(1, $ttl),
+            $payload,
+        );
         if (!$saved) {
             throw new \RuntimeException('Не удалось сохранить состояние лимитера в Redis.');
         }
+    }
+
+    private function key(string $id): string
+    {
+        return 'cbr:limiter:state:'.hash('sha256', $id);
     }
 
     /**
@@ -39,7 +48,11 @@ final readonly class RedisRateLimiterStorage implements StorageInterface
     {
         $key = $this->key($limiterStateId);
         // Lua отличает отсутствие ключа от ошибки GET и возвращает явный маркер.
-        $result = $this->redis->eval('local value = redis.call("GET", KEYS[1]); if not value then return {0} end; return {1, value}', [$key], 1);
+        $result = $this->redis->eval(
+            'local value = redis.call("GET", KEYS[1]); if not value then return {0} end; return {1, value}',
+            [$key],
+            1,
+        );
         if (!\is_array($result) || !isset($result[0])) {
             throw new \RuntimeException('Не удалось прочитать состояние лимитера из Redis.');
         }
@@ -65,10 +78,5 @@ final readonly class RedisRateLimiterStorage implements StorageInterface
         if (false === $this->redis->del($this->key($limiterStateId))) {
             throw new \RuntimeException('Не удалось удалить состояние лимитера из Redis.');
         }
-    }
-
-    private function key(string $id): string
-    {
-        return 'cbr:limiter:state:'.hash('sha256', $id);
     }
 }

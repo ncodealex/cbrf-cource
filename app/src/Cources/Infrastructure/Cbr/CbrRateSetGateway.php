@@ -106,7 +106,12 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
     ): RateSet {
         $requestId = IncidentId::create();
         $start = hrtime(true);
-        $context = ['request_id' => $requestId, 'method' => 'GET', 'endpoint' => '/scripts/XML_daily.asp', 'requested_date' => $requestedDate?->format(DateFormatInterface::ISO)];
+        $context = [
+            'request_id' => $requestId,
+            'method' => 'GET',
+            'endpoint' => '/scripts/XML_daily.asp',
+            'requested_date' => $requestedDate?->format(DateFormatInterface::ISO),
+        ];
         $this->logHttp('info', 'cbr.request', $context);
         $body = null;
         $status = null;
@@ -134,41 +139,21 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
             }
             $rateSet = $this->parse($body);
         } catch (\Throwable $e) {
-            $this->logHttp('error', 'cbr.failure', [...$context, ...$this->responseMetadata($body, $status, $start), 'exception_class' => $e::class, 'retryAt' => $e instanceof RetryableFailure ? $e->retryAt()?->format(\DATE_ATOM) : null]);
+            $this->logHttp('error', 'cbr.failure', [
+                ...$context,
+                ...$this->responseMetadata($body, $status, $start),
+                'exception_class' => $e::class,
+                'retryAt' => $e instanceof RetryableFailure ? $e->retryAt()?->format(\DATE_ATOM) : null,
+            ]);
             throw $e;
         }
-        $this->logHttp('info', 'cbr.response', [...$context, ...$this->responseMetadata($body, $status, $start), 'effective_date' => $rateSet->date()]);
+        $this->logHttp(
+            'info',
+            'cbr.response',
+            [...$context, ...$this->responseMetadata($body, $status, $start), 'effective_date' => $rateSet->date()],
+        );
 
         return $rateSet;
-    }
-
-    /**
-     * Сформировать безопасные метаданные HTTP-ответа для технического журнала.
-     *
-     * @return array<string, mixed> метаданные без учётных данных клиента
-     */
-    private function responseMetadata(
-        ?string $body,
-        ?int $status,
-        int $start,
-    ): array {
-        $metadata = ['http_status' => $status, 'duration_ms' => (hrtime(true) - $start) / 1000000, 'response_bytes' => null === $body ? 0 : \strlen($body)];
-        if (null !== $body) {
-            $metadata['sha256'] = hash('sha256', $body);
-            if ('dev' === $this->environment) {
-                $metadata['xml'] = $body;
-                if (1 !== preg_match('//u', $body)) {
-                    /*
-                     * JSON требует UTF-8, поэтому оригинальные байты сохраняются
-                     * без потерь в отдельном поле.
-                     */
-                    $metadata['xml'] = @iconv('Windows-1251', 'UTF-8', $body) ?: $body;
-                    $metadata['xml_base64'] = base64_encode($body);
-                }
-            }
-        }
-
-        return $metadata;
     }
 
     /**
@@ -202,6 +187,39 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         }
 
         return $this->mapper->map($response);
+    }
+
+    /**
+     * Сформировать безопасные метаданные HTTP-ответа для технического журнала.
+     *
+     * @return array<string, mixed> метаданные без учётных данных клиента
+     */
+    private function responseMetadata(
+        ?string $body,
+        ?int $status,
+        int $start,
+    ): array {
+        $metadata = [
+            'http_status' => $status,
+            'duration_ms' => (hrtime(true) - $start) / 1000000,
+            'response_bytes' => null === $body ? 0 : \strlen($body),
+        ];
+        if (null !== $body) {
+            $metadata['sha256'] = hash('sha256', $body);
+            if ('dev' === $this->environment) {
+                $metadata['xml'] = $body;
+                if (1 !== preg_match('//u', $body)) {
+                    /*
+                     * JSON требует UTF-8, поэтому оригинальные байты сохраняются
+                     * без потерь в отдельном поле.
+                     */
+                    $metadata['xml'] = @iconv('Windows-1251', 'UTF-8', $body) ?: $body;
+                    $metadata['xml_base64'] = base64_encode($body);
+                }
+            }
+        }
+
+        return $metadata;
     }
 
     /**

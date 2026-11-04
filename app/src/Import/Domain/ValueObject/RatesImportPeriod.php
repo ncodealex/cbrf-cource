@@ -11,6 +11,7 @@ use Symfony\Component\Clock\DatePoint;
 final readonly class RatesImportPeriod
 {
     public DatePoint $from;
+
     public DatePoint $to;
 
     public function __construct(

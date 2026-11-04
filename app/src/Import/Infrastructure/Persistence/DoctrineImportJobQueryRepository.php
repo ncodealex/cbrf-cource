@@ -46,6 +46,35 @@ final readonly class DoctrineImportJobQueryRepository implements ImportJobQueryR
     }
 
     /**
+     * Подготовить границы периода для параметров SQL-запроса.
+     *
+     * @return array{from: string, to: string} даты в формате внутреннего хранения
+     */
+    private function bounds(RatesImportPeriod $period): array
+    {
+        return [
+            'from' => $period->from->format(DateFormatInterface::ISO),
+            'to' => $period->to->format(DateFormatInterface::ISO),
+        ];
+    }
+
+    /**
+     * @param list<mixed> $dates
+     *
+     * @return list<DatePoint>
+     */
+    private function parseDates(array $dates): array
+    {
+        return array_map(static function (mixed $date): DatePoint {
+            if (!\is_string($date)) {
+                throw new \UnexpectedValueException('PostgreSQL вернул некорректную календарную дату.');
+            }
+
+            return DatePointParser::parse($date);
+        }, $dates);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function statistics(RatesImportPeriod $period): RateImportStatistics
@@ -140,6 +169,19 @@ final readonly class DoctrineImportJobQueryRepository implements ImportJobQueryR
     }
 
     /**
+     * Получить строковые значения исходных статусов для перехода.
+     *
+     * @return list<string> значения статусов для SQL-параметра
+     */
+    private function sources(RateImportAction $action): array
+    {
+        return array_map(
+            static fn (RateImportStatus $status): string => $status->value,
+            RateImportStatus::allowedFor($action),
+        );
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function errors(
@@ -184,6 +226,15 @@ final readonly class DoctrineImportJobQueryRepository implements ImportJobQueryR
                 $rows,
             ),
         );
+    }
+
+    private function text(mixed $value): string
+    {
+        if (!\is_string($value) && !\is_int($value)) {
+            throw new \UnexpectedValueException('Некорректный ответ PostgreSQL.');
+        }
+
+        return (string) $value;
     }
 
     /**
@@ -235,57 +286,6 @@ final readonly class DoctrineImportJobQueryRepository implements ImportJobQueryR
             error: (int) $this->text($row['error']),
             inconsistentDone: (int) $this->text($row['inconsistent']),
             missing: (int) $this->text($row['missing']),
-        );
-    }
-
-    /**
-     * Подготовить границы периода для параметров SQL-запроса.
-     *
-     * @return array{from: string, to: string} даты в формате внутреннего хранения
-     */
-    private function bounds(RatesImportPeriod $period): array
-    {
-        return [
-            'from' => $period->from->format(DateFormatInterface::ISO),
-            'to' => $period->to->format(DateFormatInterface::ISO),
-        ];
-    }
-
-    private function text(mixed $value): string
-    {
-        if (!\is_string($value) && !\is_int($value)) {
-            throw new \UnexpectedValueException('Некорректный ответ PostgreSQL.');
-        }
-
-        return (string) $value;
-    }
-
-    /**
-     * @param list<mixed> $dates
-     *
-     * @return list<DatePoint>
-     */
-    private function parseDates(array $dates): array
-    {
-        return array_map(static function (mixed $date): DatePoint {
-            if (!\is_string($date)) {
-                throw new \UnexpectedValueException('PostgreSQL вернул некорректную календарную дату.');
-            }
-
-            return DatePointParser::parse($date);
-        }, $dates);
-    }
-
-    /**
-     * Получить строковые значения исходных статусов для перехода.
-     *
-     * @return list<string> значения статусов для SQL-параметра
-     */
-    private function sources(RateImportAction $action): array
-    {
-        return array_map(
-            static fn (RateImportStatus $status): string => $status->value,
-            RateImportStatus::allowedFor($action),
         );
     }
 }

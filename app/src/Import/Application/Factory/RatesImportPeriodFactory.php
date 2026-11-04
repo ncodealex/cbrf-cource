@@ -75,7 +75,14 @@ final readonly class RatesImportPeriodFactory
         $toAdjusted = $toAdjusted || $to > $today;
         $period = new RatesImportPeriod($from < $minimum ? $minimum : $from, $to > $today ? $today : $to);
 
-        return new RatesImportPeriodResolution($period, $requestedFrom, $requestedTo, $days, $fromAdjusted, $toAdjusted);
+        return new RatesImportPeriodResolution(
+            $period,
+            $requestedFrom,
+            $requestedTo,
+            $days,
+            $fromAdjusted,
+            $toAdjusted,
+        );
     }
 
     private function distance(

@@ -11,7 +11,6 @@ use App\Import\Domain\Exception\InvalidRateImportTransition;
  */
 enum RateImportStatus: string
 {
-
     /**
      * Задание зарегистрировано и ожидает захвата диспетчером и Worker.
      */
@@ -40,7 +39,7 @@ enum RateImportStatus: string
      */
     public static function allowedFor(RateImportAction $action): array
     {
-        return array_values(array_filter(self::cases(), static fn(self $status): bool => $status->allows($action)));
+        return array_values(array_filter(self::cases(), static fn (self $status): bool => $status->allows($action)));
     }
 
     public function allows(RateImportAction $action): bool
@@ -71,6 +70,4 @@ enum RateImportStatus: string
             throw new InvalidRateImportTransition($this, $action);
         }
     }
-
-
 }

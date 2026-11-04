@@ -37,7 +37,11 @@ final readonly class RecoverRateImportsHandler
             $attempts = $claim->attempts + 1;
             $decision = $this->retryPolicy->decide(new ExpiredImportLease('Истёк срок владения заданием.'), $attempts);
             // 2. Сохранить восстановление с учётом подтверждения даты и версии задания.
-            if ($this->repository->recover($claim, $attempts, $this->queries->isConfirmed($claim->requestedDate->format(DateFormatInterface::ISO)) ? DatePoint::createFromInterface($this->clock->now()) : $decision->retryAt)) {
+            if ($this->repository->recover(
+                $claim,
+                $attempts,
+                $this->queries->isConfirmed($claim->requestedDate->format(DateFormatInterface::ISO)) ? DatePoint::createFromInterface($this->clock->now()) : $decision->retryAt,
+            )) {
                 ++$count;
             }
         }

@@ -39,6 +39,15 @@ final readonly class RateImportProgressSnapshot
      */
     public function counts(): array
     {
-        return [$this->total, $this->confirmed, $this->waiting, $this->processing, $this->deferred, $this->error, $this->inconsistentDone, $this->missing];
+        return [
+            $this->total,
+            $this->confirmed,
+            $this->waiting,
+            $this->processing,
+            $this->deferred,
+            $this->error,
+            $this->inconsistentDone,
+            $this->missing,
+        ];
     }
 }

@@ -7,8 +7,6 @@ namespace App\Import\Domain\Entity;
 use App\Import\Domain\Enum\RateImportAction;
 use App\Import\Domain\Enum\RateImportStatus;
 use App\Import\Domain\ValueObject\ImportJobExecution;
-use InvalidArgumentException;
-use LogicException;
 use Symfony\Component\Clock\DatePoint;
 
 /**
@@ -34,7 +32,7 @@ final class ImportJob
             || $attempts < 0
             || (RateImportStatus::Processing === $status && null === $leaseUntil)
             || (RateImportStatus::Deferred === $status && null === $availableAt)) {
-            throw new InvalidArgumentException('Некорректное состояние задания импорта.');
+            throw new \InvalidArgumentException('Некорректное состояние задания импорта.');
         }
     }
 
@@ -47,9 +45,9 @@ final class ImportJob
     ): ImportJobExecution {
         $this->status->assertAllows(RateImportAction::Claim);
         if ($this->availableAt > $now || $leaseUntil <= $now) {
-            throw new LogicException('Задание ещё недоступно либо срок владения уже истёк.');
+            throw new \LogicException('Задание ещё недоступно либо срок владения уже истёк.');
         }
-        $this->status     = RateImportStatus::Processing;
+        $this->status = RateImportStatus::Processing;
         $this->leaseUntil = $leaseUntil;
         ++$this->version;
 
@@ -66,14 +64,14 @@ final class ImportJob
     ): void {
         $this->status->assertAllows(RateImportAction::Complete);
         if (!$confirmed) {
-            throw new LogicException('Дата не подтверждена в хранилище курсов.');
+            throw new \LogicException('Дата не подтверждена в хранилище курсов.');
         }
         $this->finish(
             RateImportStatus::Done,
             $attempts,
             $now,
             null,
-            null
+            null,
         );
         $this->completedAt = $now;
     }
@@ -86,16 +84,16 @@ final class ImportJob
         ?string $text,
     ): void {
         if ($attempts < 0) {
-            throw new InvalidArgumentException('Число попыток не может быть отрицательным.');
+            throw new \InvalidArgumentException('Число попыток не может быть отрицательным.');
         }
-        $this->status       = $status;
-        $this->attempts     = $attempts;
-        $this->availableAt  = $availableAt;
-        $this->leaseUntil   = null;
+        $this->status = $status;
+        $this->attempts = $attempts;
+        $this->availableAt = $availableAt;
+        $this->leaseUntil = null;
         $this->dispatchedAt = null;
-        $this->completedAt  = null;
-        $this->errorCode    = $code;
-        $this->errorText    = $text;
+        $this->completedAt = null;
+        $this->errorCode = $code;
+        $this->errorText = $text;
         ++$this->version;
     }
 
@@ -124,7 +122,7 @@ final class ImportJob
             $attempts,
             $now,
             $code,
-            $text
+            $text,
         );
     }
 
@@ -137,11 +135,10 @@ final class ImportJob
         ?DatePoint $retryAt,
         string $code,
     ): void {
-
         $this->status->assertAllows(RateImportAction::Recover);
 
         if (null === $this->leaseUntil || $this->leaseUntil > $now) {
-            throw new LogicException('Срок владения заданием ещё не истёк.');
+            throw new \LogicException('Срок владения заданием ещё не истёк.');
         }
 
         $status = null === $retryAt
@@ -153,7 +150,7 @@ final class ImportJob
             $attempts,
             $retryAt ?? $now,
             $code,
-            'Истёк срок владения заданием.'
+            'Истёк срок владения заданием.',
         );
     }
 
@@ -173,7 +170,7 @@ final class ImportJob
             0,
             $now,
             null,
-            null
+            null,
         );
     }
 
@@ -186,7 +183,7 @@ final class ImportJob
     ): void {
         $this->status->assertAllows(RateImportAction::RepairDone);
         if ($confirmed) {
-            throw new LogicException('Подтверждённое задание не требует восстановления.');
+            throw new \LogicException('Подтверждённое задание не требует восстановления.');
         }
         $this->reset($now);
     }

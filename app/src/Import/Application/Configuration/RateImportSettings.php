@@ -24,7 +24,14 @@ final readonly class RateImportSettings
         #[Autowire('%env(int:default:app.import.default_progress_timeout_seconds:IMPORT_PROGRESS_TIMEOUT_SECONDS)%')]
         public int $progressTimeout,
     ) {
-        if (min($batchSize, $interval, $redispatchAfter, $maxUnclaimed, $leaseSeconds, $progressInterval) < 1 || $progressTimeout < 0) {
+        if (min(
+            $batchSize,
+            $interval,
+            $redispatchAfter,
+            $maxUnclaimed,
+            $leaseSeconds,
+            $progressInterval,
+        ) < 1 || $progressTimeout < 0) {
             throw new \InvalidArgumentException('Некорректные параметры импорта.');
         }
     }

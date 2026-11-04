@@ -50,7 +50,9 @@ final readonly class RateImportProgressObserver
         if (\function_exists('pcntl_signal')) {
             foreach ([\SIGINT, \SIGTERM] as $signal) {
                 $handlers[$signal] = pcntl_signal_get_handler($signal);
-                pcntl_signal($signal, static function () use (&$stopping): void { $stopping = true; });
+                pcntl_signal($signal, static function () use (&$stopping): void {
+                    $stopping = true;
+                });
             }
         }
         try {
@@ -66,7 +68,14 @@ final readonly class RateImportProgressObserver
                 $initialConfirmed ??= $snapshot->confirmed;
                 $eta = null === $snapshot->estimatedRemaining ? '—' : $this->duration($snapshot->estimatedRemaining);
                 if (null !== $bar) {
-                    foreach (['waiting' => $snapshot->waiting, 'processing' => $snapshot->processing, 'deferred' => $snapshot->deferred, 'errors' => $snapshot->error, 'inconsistent' => $snapshot->inconsistentDone, 'missing' => $snapshot->missing] as $name => $value) {
+                    foreach ([
+                        'waiting' => $snapshot->waiting,
+                        'processing' => $snapshot->processing,
+                        'deferred' => $snapshot->deferred,
+                        'errors' => $snapshot->error,
+                        'inconsistent' => $snapshot->inconsistentDone,
+                        'missing' => $snapshot->missing,
+                    ] as $name => $value) {
                         $bar->setMessage((string) $value, $name);
                     }
                     $bar->setMessage($this->duration($elapsed), 'elapsed_time');
@@ -74,7 +83,19 @@ final readonly class RateImportProgressObserver
                     $bar->setProgress($snapshot->confirmed);
                     $bar->display();
                 } elseif ($snapshot->counts() !== $previous) {
-                    $output->writeln(\sprintf('Подтверждено: %d/%d; Waiting: %d; Processing: %d; Deferred: %d; Error: %d; некорректных Done: %d; без задания: %d; прошло: %s; ETA: %s', $snapshot->confirmed, $period->count(), $snapshot->waiting, $snapshot->processing, $snapshot->deferred, $snapshot->error, $snapshot->inconsistentDone, $snapshot->missing, $this->duration($elapsed), $eta));
+                    $output->writeln(\sprintf(
+                        'Подтверждено: %d/%d; Waiting: %d; Processing: %d; Deferred: %d; Error: %d; некорректных Done: %d; без задания: %d; прошло: %s; ETA: %s',
+                        $snapshot->confirmed,
+                        $period->count(),
+                        $snapshot->waiting,
+                        $snapshot->processing,
+                        $snapshot->deferred,
+                        $snapshot->error,
+                        $snapshot->inconsistentDone,
+                        $snapshot->missing,
+                        $this->duration($elapsed),
+                        $eta,
+                    ));
                     $previous = $snapshot->counts();
                 }
                 if ($snapshot->confirmed === $period->count()) {

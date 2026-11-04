@@ -46,7 +46,10 @@ final readonly class RedisRateSetLoadLock implements RateSetLoadLockInterface
             try {
                 $lock->release();
             } catch (\Throwable $releaseFailure) {
-                $this->logger->warning('Не удалось очистить блокировку после сбоя захвата', $context + ['exception_class' => $releaseFailure::class]);
+                $this->logger->warning(
+                    'Не удалось очистить блокировку после сбоя захвата',
+                    $context + ['exception_class' => $releaseFailure::class],
+                );
             }
             $this->logger->warning('Сбой блокировки загрузки курсов', $context + ['exception_class' => $e::class]);
             throw new RateSetLoadLockFailure(previous: $e);
@@ -70,7 +73,10 @@ final readonly class RedisRateSetLoadLock implements RateSetLoadLockInterface
             try {
                 $lock->release();
             } catch (\Throwable $e) {
-                $this->logger->warning('Не удалось освободить блокировку загрузки курсов', $context + ['exception_class' => $e::class]);
+                $this->logger->warning(
+                    'Не удалось освободить блокировку загрузки курсов',
+                    $context + ['exception_class' => $e::class],
+                );
                 if (null === $failure) {
                     throw new RateSetLoadLockFailure(previous: $e);
                 }

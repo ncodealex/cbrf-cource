@@ -17,16 +17,11 @@ use App\Shared\Contracts\Import\StaleImportExecution;
 use App\Shared\Domain\DateFormatInterface;
 use App\Shared\Domain\DatePointParser;
 use App\Support\Logging\Application\IncidentId;
-use Closure;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use InvalidArgumentException;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use UnexpectedValueException;
-use function is_int;
-use function is_string;
 
 #[AsAlias(ImportJobRepositoryInterface::class)]
 #[AsAlias(ImportJobResetter::class)]
@@ -47,15 +42,15 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             return [];
         }
 
-        $values     = [];
+        $values = [];
         $parameters = ['status' => RateImportStatus::Waiting->value];
         foreach ($dates as $index => $date) {
-            $name              = 'date' . $index;
-            $values[]          = '(:' . $name . ', :status)';
+            $name = 'date'.$index;
+            $values[] = '(:'.$name.', :status)';
             $parameters[$name] = $date->format(DateFormatInterface::ISO);
         }
-        /// ON CONFLICT (requested_date) DO NOTHING пропустить строки которые есть
-        $sql  = str_replace(
+        // / ON CONFLICT (requested_date) DO NOTHING пропустить строки которые есть
+        $sql = str_replace(
             '{{ values }}',
             implode(', ', $values),
             <<<'SQL'
@@ -81,8 +76,8 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     private function parseDates(array $dates): array
     {
         return array_map(static function (mixed $date): DatePoint {
-            if (!is_string($date)) {
-                throw new UnexpectedValueException('PostgreSQL вернул некорректную календарную дату.');
+            if (!\is_string($date)) {
+                throw new \UnexpectedValueException('PostgreSQL вернул некорректную календарную дату.');
             }
 
             return DatePointParser::parse($date);
@@ -95,7 +90,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     public function requeueUnconfirmedDone(RatesImportPeriod $period): int
     {
         RateImportStatus::Done->assertAllows(RateImportAction::RepairDone);
-        $sql     = str_replace(
+        $sql = str_replace(
             '{{ assignments }}',
             $this->resetAssignments(),
             <<<'SQL'
@@ -115,11 +110,11 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             [
                 ...$this->bounds($period),
                 'waiting' => RateImportStatus::Waiting->value,
-                'done'    => RateImportStatus::Done->value,
+                'done' => RateImportStatus::Done->value,
             ],
         );
 
-        return (int)$updated;
+        return (int) $updated;
     }
 
     /**
@@ -153,7 +148,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     {
         return [
             'from' => $period->from->format(DateFormatInterface::ISO),
-            'to'   => $period->to->format(DateFormatInterface::ISO),
+            'to' => $period->to->format(DateFormatInterface::ISO),
         ];
     }
 
@@ -180,9 +175,9 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             $sql,
             [
                 'waiting' => RateImportStatus::Waiting->value,
-                'states'  => $this->sources(RateImportAction::Refresh),
-                'dates'   => array_map(
-                    static fn(DatePoint $date): string => $date->format(DateFormatInterface::ISO),
+                'states' => $this->sources(RateImportAction::Refresh),
+                'dates' => array_map(
+                    static fn (DatePoint $date): string => $date->format(DateFormatInterface::ISO),
                     $dates,
                 ),
             ],
@@ -198,7 +193,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     private function sources(RateImportAction $action): array
     {
         return array_map(
-            static fn(RateImportStatus $status): string => $status->value,
+            static fn (RateImportStatus $status): string => $status->value,
             RateImportStatus::allowedFor($action),
         );
     }
@@ -219,7 +214,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                 SQL,
             [
                 'dates' => array_map(
-                    static fn(DatePoint $date): string => $date->format(DateFormatInterface::ISO),
+                    static fn (DatePoint $date): string => $date->format(DateFormatInterface::ISO),
                     $dates,
                 ),
             ],
@@ -237,7 +232,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     ): array {
         return $this->connection->transactional(function () use ($limit, $redispatchAfter, $maxUnclaimed): array {
             /**
-             * Общая блокировка +  освобождение ресурсов Result
+             * Общая блокировка +  освобождение ресурсов Result.
              */
             $dispatchLock = $this->connection->executeQuery(
                 <<<'SQL'
@@ -254,12 +249,12 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                     SQL,
                 [
                     'states' => $this->sources(RateImportAction::Claim),
-                    'delay'  => $redispatchAfter,
+                    'delay' => $redispatchAfter,
                 ],
                 ['states' => ArrayParameterType::STRING],
             );
-            $unclaimed      = (int)$unclaimedValue;
-            $count          = min($limit, max(0, $maxUnclaimed - $unclaimed));
+            $unclaimed = (int) $unclaimedValue;
+            $count = min($limit, max(0, $maxUnclaimed - $unclaimed));
 
             if (0 === $count) {
                 return [];
@@ -268,7 +263,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             /**
              * 0. pg_advisory_xact_lock
              * 1. В CTE забираем то, что подходит по статусу и таймингам и не заблочено по FOR UPDATE SKIP LOCKED
-             * 2. Обновляем время дистпатча и обновления
+             * 2. Обновляем время дистпатча и обновления.
              */
             $rows = $this->connection->fetchAllAssociative(
                 <<<'SQL'
@@ -293,19 +288,19 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                     SQL,
                 [
                     'states' => $this->sources(RateImportAction::Claim),
-                    'delay'  => $redispatchAfter,
-                    'limit'  => $count,
+                    'delay' => $redispatchAfter,
+                    'limit' => $count,
                 ],
                 [
                     'states' => ArrayParameterType::STRING,
-                    'limit'  => ParameterType::INTEGER,
+                    'limit' => ParameterType::INTEGER,
                 ],
             );
 
             return array_map(
-                fn(array $row): ProcessRateImportMessage => new ProcessRateImportMessage(
+                fn (array $row): ProcessRateImportMessage => new ProcessRateImportMessage(
                     $this->text($row['requested_date']),
-                    (int)$this->text($row['version']),
+                    (int) $this->text($row['version']),
                 ),
                 $rows,
             );
@@ -314,11 +309,11 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
 
     private function text(mixed $value): string
     {
-        if (!is_string($value) && !is_int($value)) {
-            throw new UnexpectedValueException('Некорректный ответ PostgreSQL.');
+        if (!\is_string($value) && !\is_int($value)) {
+            throw new \UnexpectedValueException('Некорректный ответ PostgreSQL.');
         }
 
-        return (string)$value;
+        return (string) $value;
     }
 
     /**
@@ -327,7 +322,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     public function write(
         DatePoint $date,
         int $version,
-        Closure $write,
+        \Closure $write,
     ): void {
         $this->connection->transactional(function () use ($date, $version, $write): void {
             $row = $this->connection->fetchOne(
@@ -338,9 +333,9 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                     FOR UPDATE
                     SQL,
                 [
-                    'date'    => $date->format(DateFormatInterface::ISO),
+                    'date' => $date->format(DateFormatInterface::ISO),
                     'version' => $version,
-                    'status'  => RateImportStatus::Processing->value,
+                    'status' => RateImportStatus::Processing->value,
                 ],
             );
             if (false === $row) {
@@ -367,7 +362,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             if ($job->availableAt > $now) {
                 return null;
             }
-            $execution = $job->claim($now, $now->modify('+' . $leaseSeconds . ' seconds'));
+            $execution = $job->claim($now, $now->modify('+'.$leaseSeconds.' seconds'));
             $this->save($job, $version);
 
             return $execution;
@@ -424,17 +419,17 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                 WHERE requested_date = :date AND version = :expected
                 SQL,
             [
-                'date'       => $job->requestedDate->format(DateFormatInterface::ISO),
-                'expected'   => $expectedVersion,
-                'version'    => $job->version,
-                'status'     => $job->status->value,
-                'attempts'   => $job->attempts,
-                'available'  => $job->availableAt?->format('Y-m-d H:i:s.uP'),
-                'lease'      => $job->leaseUntil?->format('Y-m-d H:i:s.uP'),
+                'date' => $job->requestedDate->format(DateFormatInterface::ISO),
+                'expected' => $expectedVersion,
+                'version' => $job->version,
+                'status' => $job->status->value,
+                'attempts' => $job->attempts,
+                'available' => $job->availableAt?->format('Y-m-d H:i:s.uP'),
+                'lease' => $job->leaseUntil?->format('Y-m-d H:i:s.uP'),
                 'dispatched' => $job->dispatchedAt?->format('Y-m-d H:i:s.uP'),
-                'completed'  => $job->completedAt?->format('Y-m-d H:i:s.uP'),
-                'code'       => $job->errorCode,
-                'error'      => $job->errorText,
+                'completed' => $job->completedAt?->format('Y-m-d H:i:s.uP'),
+                'code' => $job->errorCode,
+                'error' => $job->errorText,
             ],
         );
 
@@ -463,7 +458,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             $errorText
         ): bool {
             $date = $claim->requestedDate->format(DateFormatInterface::ISO);
-            $job  = $this->locked($date, $claim->version);
+            $job = $this->locked($date, $claim->version);
             if (null === $job || RateImportStatus::Processing !== $job->status) {
                 return false;
             }
@@ -475,7 +470,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                 RateImportAction::Complete => $job->complete($now, true, $attempts),
                 RateImportAction::Defer => $job->defer($availableAt ?? $now, $attempts, $errorCode, $errorText),
                 RateImportAction::Fail => $job->fail($now, $attempts, $errorCode, $errorText),
-                default => throw new InvalidArgumentException('Недопустимое действие завершения задания.'),
+                default => throw new \InvalidArgumentException('Недопустимое действие завершения задания.'),
             };
 
             return $this->save($job, $claim->version);
@@ -509,11 +504,11 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
     ): bool {
         return $this->connection->transactional(function () use ($claim, $attempts, $retryAt): bool {
             // 1. Блокируем с проверкой того, что не заблокировано
-            /// FOR UPDATE SKIP LOCKED
+            // / FOR UPDATE SKIP LOCKED
             $job = $this->locked(
                 $claim->requestedDate->format(DateFormatInterface::ISO),
                 $claim->version,
-                true
+                true,
             );
 
             $now = $this->now();
@@ -536,7 +531,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
      */
     public function retryErrors(?string $date): int
     {
-        $action     = RateImportAction::RetryError;
+        $action = RateImportAction::RetryError;
         $parameters = ['waiting' => RateImportStatus::Waiting->value, 'states' => $this->sources($action)];
         if (null !== $date) {
             $row = $this->connection->fetchAssociative(
@@ -548,15 +543,15 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                 ['date' => $date],
             );
             if (false === $row) {
-                throw new InvalidArgumentException('Задание на указанную дату не найдено.');
+                throw new \InvalidArgumentException('Задание на указанную дату не найдено.');
             }
 
             RateImportStatus::from($this->text($row['status']))->assertAllows($action);
-            $parameters['date']    = $date;
+            $parameters['date'] = $date;
             $parameters['version'] = $this->text($row['version']);
         }
 
-        $where   = null === $date
+        $where = null === $date
             ? <<<'SQL'
                 j.status IN (:states)
                 SQL
@@ -565,7 +560,7 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
                     AND j.requested_date = :date
                     AND j.version = :version
                 SQL;
-        $sql     = str_replace(
+        $sql = str_replace(
             ['{{ assignments }}', '{{ conditions }}'],
             [$this->resetAssignments(), $where],
             <<<'SQL'
@@ -580,6 +575,6 @@ final readonly class DoctrineImportJobRepository implements ImportJobRepositoryI
             ['states' => ArrayParameterType::STRING],
         );
 
-        return (int)$updated;
+        return (int) $updated;
     }
 }

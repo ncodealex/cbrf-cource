@@ -32,7 +32,15 @@ final readonly class StoredRateSetImportGateway implements RateSetImportGateway
         DatePoint $requestedDate,
         ?int $executionVersion = null,
     ): void {
-        $this->resolver->resolve($requestedDate, null === $executionVersion ? null : fn (\Closure $write) => $this->fence->write($requestedDate, $executionVersion, $write), true);
+        $this->resolver->resolve(
+            $requestedDate,
+            null === $executionVersion ? null : fn (\Closure $write) => $this->fence->write(
+                $requestedDate,
+                $executionVersion,
+                $write,
+            ),
+            true,
+        );
     }
 
     /**

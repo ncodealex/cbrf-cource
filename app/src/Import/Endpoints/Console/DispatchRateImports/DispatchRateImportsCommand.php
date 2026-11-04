@@ -33,18 +33,6 @@ final class DispatchRateImportsCommand
     ) {
     }
 
-    /**
-     * @phpstan-impure
-     */
-    private function isStopping(): bool
-    {
-        if (\function_exists('pcntl_signal_dispatch')) {
-            pcntl_signal_dispatch();
-        }
-
-        return $this->stopping;
-    }
-
     public function __invoke(
         SymfonyStyle $io,
         #[Option]
@@ -62,7 +50,9 @@ final class DispatchRateImportsCommand
         if ($watch && \function_exists('pcntl_signal')) {
             foreach ([\SIGTERM, \SIGINT] as $signal) {
                 $previous[$signal] = pcntl_signal_get_handler($signal);
-                pcntl_signal($signal, function (): void { $this->stopping = true; });
+                pcntl_signal($signal, function (): void {
+                    $this->stopping = true;
+                });
             }
         }
         try {
@@ -100,5 +90,17 @@ final class DispatchRateImportsCommand
     private function validMode(bool $once, bool $watch): bool
     {
         return $once !== $watch;
+    }
+
+    /**
+     * @phpstan-impure
+     */
+    private function isStopping(): bool
+    {
+        if (\function_exists('pcntl_signal_dispatch')) {
+            pcntl_signal_dispatch();
+        }
+
+        return $this->stopping;
     }
 }

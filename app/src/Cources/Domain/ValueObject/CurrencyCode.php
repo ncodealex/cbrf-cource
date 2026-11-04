@@ -11,7 +11,7 @@ use App\Cources\Domain\Exception\InvalidCurrencyCode;
  */
 final readonly class CurrencyCode implements \Stringable
 {
-    public const string RUB = 'RUB';
+    public const string  RUB = 'RUB';
     private const string RUR = 'RUR';
 
     private function __construct(

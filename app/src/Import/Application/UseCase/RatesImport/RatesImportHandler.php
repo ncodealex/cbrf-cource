@@ -11,7 +11,6 @@ use App\Shared\Domain\DateFormatInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\DatePoint;
-use function count;
 
 final readonly class RatesImportHandler
 {
@@ -24,7 +23,6 @@ final readonly class RatesImportHandler
 
     public function __invoke(RatesImportPeriod $period): RatesImportResult
     {
-
         // 1. Вернуть в очередь Done без подтверждённой календарной даты.
         $requeuedDone = $this->repository->requeueUnconfirmedDone($period);
 
@@ -45,17 +43,17 @@ final readonly class RatesImportHandler
 
         // 5. Записать итог и вернуть состояние периода.
         $this->logger->info('Регистрация заданий импорта.', [
-            'created'       => count($inserted),
-            'confirmed'     => count($confirmed),
+            'created' => \count($inserted),
+            'confirmed' => \count($confirmed),
             'repaired_done' => $requeuedDone,
         ]);
 
         return new RatesImportResult(
             $period,
             $period->count(),
-            count($confirmed),
-            count($missing) - count($inserted),
-            count($inserted),
+            \count($confirmed),
+            \count($missing) - \count($inserted),
+            \count($inserted),
             $this->queries->statistics($period),
             $requeuedDone,
         );
