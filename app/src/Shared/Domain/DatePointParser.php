@@ -10,7 +10,9 @@ final class DatePointParser
 {
     public const string TIMEZONE = 'Europe/Moscow';
 
-    /** Календарная дата момента времени на полночь по Москве. */
+    /**
+     * Календарная дата момента времени на полночь по Москве.
+     */
     public static function dateOf(\DateTimeInterface $moment): DatePoint
     {
         return self::parse(
@@ -20,7 +22,9 @@ final class DatePointParser
         );
     }
 
-    /** @throws \InvalidArgumentException */
+    /**
+     * @throws \InvalidArgumentException
+     */
     public static function parse(string $value): DatePoint
     {
         if (preg_match('/\A([0-9]{4})-([0-9]{2})-([0-9]{2})\z/', $value, $parts)) {

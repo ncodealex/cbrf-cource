@@ -18,14 +18,18 @@ final readonly class HealthController
     ) {
     }
 
-    /** Liveness: процесс обрабатывает HTTP-запросы. Внешние зависимости не проверяются. */
+    /**
+     * Liveness: процесс обрабатывает HTTP-запросы. Внешние зависимости не проверяются.
+     */
     #[Route('/health/live', name: 'health_live', methods: ['GET'])]
     public function live(): JsonResponse
     {
         return $this->json(['status' => 'ok'], Response::HTTP_OK);
     }
 
-    /** Readiness: обязательные зависимости доступны, экземпляр готов принимать трафик. */
+    /**
+     * Readiness: обязательные зависимости доступны, экземпляр готов принимать трафик.
+     */
     #[Route('/health/ready', name: 'health_ready', methods: ['GET'])]
     public function ready(): JsonResponse
     {
@@ -39,8 +43,10 @@ final readonly class HealthController
     /**
      * @param array<string, mixed> $data
      */
-    private function json(array $data, int $status): JsonResponse
-    {
+    private function json(
+        array $data,
+        int $status,
+    ): JsonResponse {
         return new JsonResponse($data, $status, ['Cache-Control' => 'no-store']);
     }
 }

@@ -7,7 +7,9 @@ namespace App\Cources\Infrastructure\Cbr\Response;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
-/** Исходная котировка ЦБ; числовые поля сохраняются строками до проверки. */
+/**
+ * Исходная котировка ЦБ; числовые поля сохраняются строками до проверки.
+ */
 #[Exclude]
 final readonly class RateItemResponse
 {

@@ -13,7 +13,15 @@ use Symfony\Component\Clock\DatePoint;
  */
 interface ExternalRateSetGatewayDatePolicyInterface
 {
+    /**
+     * Получить нижнюю календарную границу, поддерживаемую текущим источником.
+     */
     public function minRequestDate(): DatePoint;
 
+    /**
+     * Проверить доступность календарной даты без запроса котировок и изменения хранилища.
+     *
+     * @throws \Throwable&\App\Cources\Application\Exception\GatewayNotSupportRateSetDateInterface если дата недоступна
+     */
     public function assertAllowed(DatePoint $date): void;
 }

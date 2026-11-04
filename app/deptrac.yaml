@@ -1,93 +1,60 @@
-# Контроль зависимостей между слоями (make qa).
-#
-# Onion: Domain <- Application <- Infrastructure / Presentation.
-# Слои собираются по структуре каталогов модулей:
-#   src/Modules/<Module>/{Domain,Application,Infrastructure,Presentation} — бизнес-модули
-#   src/Support/<Module>/{Domain,Application,Infrastructure,Presentation} — технические модули (Health ...)
-#   src/Shared/{Domain,Infrastructure}                                      — общий код
-#   src/Integration/<Source>/{Domain,Application,Integration}               — клиенты внешних систем (Cbr ...)
-#
-# Бизнес-модули не зависят от внешних систем: к интеграции обращается только адаптер
-# в Infrastructure модуля и только через её публичный контракт (Application + Domain).
-#
-# Сторонний код разбит на точечные слои: в Domain и Application разрешены только
-# перечисленные ниже API, всё остальное из Symfony/Doctrine — слой Vendor.
-
+# Явные границы бизнес-модулей. Межмодульный API — только Shared.Contracts.
 deptrac:
-    paths:
-        - ./src
-
-    exclude_files:
-        - '#.*Kernel\.php$#'
-
+    paths: [./src]
+    exclude_files: ['#.*Kernel\.php$#']
     layers:
-        # ============================================
-        # SHARED — общий код всех модулей
-        # ============================================
-        -   name: Shared.Domain
-            collectors:
-                -   type: directory
-                    value: src/Shared/Domain/.*
-
-        -   name: Shared.Infrastructure
-            collectors:
-                -   type: directory
-                    value: src/Shared/Infrastructure/.*
-
-        # ============================================
-        # МОДУЛИ (Modules/* и Support/*)
-        # ============================================
-        -   name: Domain
-            collectors:
-                -   type: directory
-                    value: src/(?:Cources/Domain|(?:Modules|Support)/[^/]+/Domain)/.*
-
-        -   name: Application
-            collectors:
-                -   type: directory
-                    value: src/(?:Cources/Application|(?:Modules|Support)/[^/]+/Application)/.*
-
-        -   name: Infrastructure
-            collectors:
-                -   type: directory
-                    value: src/(?:Cources/Infrastructure|(?:Modules|Support)/[^/]+/Infrastructure)/.*
-
-        # HTTP-контроллеры, консольные команды, message handlers, event listeners.
-        # Знают об Application и Domain, но не о конкретной Infrastructure.
-        # Бизнес-модули называют этот слой Endpoints, технические — Presentation.
-        -   name: Presentation
-            collectors:
-                -   type: directory
-                    value: src/(?:Cources/Endpoints|(?:Modules|Support)/[^/]+/(?:Presentation|Endpoints))/.*
-
-        # ============================================
-        # ИНТЕГРАЦИИ (Integration/*) — отдельные слои: общий слой Domain
-        # с бизнес-модулями открыл бы доменам доступ к DTO внешних систем.
-        # ============================================
-        # DTO и ошибки внешней системы.
-        -   name: Integration.Domain
-            collectors:
-                -   type: directory
-                    value: src/Integration/[^/]+/Domain/.*
-
-        # Публичный контракт клиента (интерфейсы).
-        -   name: Integration.Application
-            collectors:
-                -   type: directory
-                    value: src/Integration/[^/]+/Application/.*
-
-        # Реализация: HTTP, разбор форматов. Снаружи модуля недоступна.
-        -   name: Integration.Client
-            collectors:
-                -   type: directory
-                    value: src/Integration/[^/]+/Integration/.*
-
-        # ============================================
-        # СТОРОННИЙ КОД
-        # ============================================
-        # Doctrine API, допустимые в доменных моделях:
-        # - ORM Mapping attributes (#[ORM\Entity], #[ORM\Column] ...) для метаданных сущностей;
-        # - Collections для связей между сущностями.
+        - name: Import.Domain
+          collectors:
+              - type: directory
+                value: src/Import/Domain/.*
+        - name: Import.Application
+          collectors:
+              - type: directory
+                value: src/Import/Application/.*
+        - name: Import.Infrastructure
+          collectors:
+              - type: directory
+                value: src/Import/Infrastructure/.*
+        - name: Import.Endpoints
+          collectors:
+              - type: directory
+                value: src/Import/Endpoints/.*
+        - name: Cources.Domain
+          collectors:
+              - type: directory
+                value: src/Cources/Domain/.*
+        - name: Cources.Application
+          collectors:
+              - type: directory
+                value: src/Cources/Application/.*
+        - name: Cources.Infrastructure
+          collectors:
+              - type: directory
+                value: src/Cources/Infrastructure/.*
+        - name: Cources.Endpoints
+          collectors:
+              - type: directory
+                value: src/Cources/Endpoints/.*
+        - name: Shared.Contracts
+          collectors:
+              - type: directory
+                value: src/Shared/Contracts/.*
+        - name: Shared.Domain
+          collectors:
+              - type: directory
+                value: src/Shared/Domain/.*
+        - name: Support.Application
+          collectors:
+              - type: directory
+                value: src/Support/[^/]+/Application/.*
+        - name: Support.Infrastructure
+          collectors:
+              - type: directory
+                value: src/Support/[^/]+/Infrastructure/.*
+        - name: Support.Endpoints
+          collectors:
+              - type: directory
+                value: src/Support/[^/]+/(?:Endpoints|Presentation)/.*
         -   name: Doctrine.DomainModel
             collectors:
                 -   type: classNameRegex
@@ -136,112 +103,116 @@ deptrac:
                 -   type: classNameRegex
                     value: '#^Monolog\\#'
 
-    # ============================================
-    # ПРАВИЛА ЗАВИСИМОСТЕЙ
-    # ============================================
+
     ruleset:
-        # --- Shared ---
         Shared.Domain:
             - Doctrine.DomainModel
             - Symfony.DatePoint
-
-        Shared.Infrastructure:
+        Shared.Contracts:
+            - Shared.Domain
+            - Symfony.DatePoint
+        Support.Application:
             - Shared.Domain
             - Symfony.DatePoint
             - Symfony.ClockInterface
             - Symfony.DependencyInjectionAttribute
             - Psr
-            - Vendor
-
-        # --- Модули ---
-        # Domain: только свой код, Shared.Domain и разрешённые доменные API.
-        # Symfony DI attributes, HTTP, Messenger и т.п. в Domain запрещены.
-        Domain:
+        Support.Infrastructure:
             - Shared.Domain
+            - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
             - Doctrine.DomainModel
-            - Symfony.DatePoint
-
-        # Application: use cases и контракты. От фреймворка — только DI attributes и PSR.
-        Application:
-            - Domain
+        Support.Endpoints:
             - Shared.Domain
             - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
             - Symfony.ClockInterface
             - Symfony.DependencyInjectionAttribute
             - Psr
-
-        # Infrastructure: реализации контрактов (Doctrine, Redis, AMQP, адаптеры интеграций).
-        Infrastructure:
-            - Domain
-            - Application
-            - Integration.Domain
-            - Integration.Application
-            - Shared.Domain
-            - Shared.Infrastructure
+            - Vendor
             - Doctrine.DomainModel
-            - Symfony.DatePoint
-            - Symfony.ClockInterface
-            - Symfony.DependencyInjectionAttribute
-            - Psr
-            - Vendor
-
-        # Presentation: точки входа. Работает через Application, без прямого доступа к Infrastructure.
-        Presentation:
-            - Domain
-            - Application
-            - Shared.Domain
-            - Shared.Infrastructure
-            - Symfony.DatePoint
-            - Symfony.ClockInterface
-            - Symfony.DependencyInjectionAttribute
-            - Psr
-            - Vendor
-
-        # --- Интеграции ---
-        Integration.Domain:
+        Import.Domain:
             - Shared.Domain
             - Symfony.DatePoint
-
-        Integration.Application:
-            - Integration.Domain
+        Import.Application:
+            - Shared.Domain
             - Symfony.DatePoint
-
-        Integration.Client:
-            - Integration.Domain
-            - Integration.Application
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Import.Domain
+        Import.Infrastructure:
+            - Shared.Domain
             - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
             - Symfony.ClockInterface
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-
+            - Doctrine.DomainModel
+            - Import.Domain
+            - Import.Application
+        Import.Endpoints:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+            - Doctrine.DomainModel
+            - Import.Domain
+            - Import.Application
+        Cources.Domain:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Doctrine.DomainModel
+        Cources.Application:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Cources.Domain
+        Cources.Infrastructure:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+            - Doctrine.DomainModel
+            - Cources.Domain
+            - Cources.Application
+        Cources.Endpoints:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+            - Doctrine.DomainModel
+            - Cources.Domain
+            - Cources.Application
         Doctrine.DomainModel: ~
         Symfony.DatePoint: ~
         Symfony.ClockInterface: ~
         Symfony.DependencyInjectionAttribute: ~
         Psr: ~
         Vendor: ~
-
-    # Известные осознанные нарушения (baseline) — с обязательным комментарием, например:
-    # skip_violations:
-    #     # Ограничение Doctrine: Entity ссылается на класс репозитория в #[ORM\Entity(repositoryClass: ...)]
-    #     App\Modules\Billing\Domain\Entity\Invoice:
-    #         - App\Modules\Billing\Infrastructure\Doctrine\InvoiceRepository
-
-    formatters:
-        graphviz:
-            hidden_layers:
-                - Vendor
-            groups:
-                Shared:
-                    - Shared.Domain
-                    - Shared.Infrastructure
-                Modules:
-                    - Domain
-                    - Application
-                    - Infrastructure
-                    - Presentation
-                Integrations:
-                    - Integration.Domain
-                    - Integration.Application
-                    - Integration.Client

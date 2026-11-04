@@ -119,7 +119,9 @@ final class RateSetResolverTest extends TestCase
         self::assertSame(['refresh', 'fetch', 'refresh', 'save', 'cache'], $events);
     }
 
-    /** @return iterable<string, array{\Throwable}> */
+    /**
+     * @return iterable<string, array{\Throwable}>
+     */
     public static function lockFailures(): iterable
     {
         yield 'занято' => [new RateSetLoadBusy()];
@@ -139,7 +141,9 @@ final class RateSetResolverTest extends TestCase
         $this->resolver()->resolve($this->date);
     }
 
-    /** @return iterable<string, array{string, \Throwable}> */
+    /**
+     * @return iterable<string, array{string, \Throwable}>
+     */
     public static function sourceFailures(): iterable
     {
         yield 'Gateway' => ['fetch', new CbrUnavailable('Ошибка ЦБ')];

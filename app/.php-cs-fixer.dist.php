@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 $finder = new PhpCsFixer\Finder()
-    ->in([__DIR__.'/src', __DIR__.'/tests', __DIR__.'/config', __DIR__.'/migrations'])
-    ->append([__FILE__])
+    ->in([__DIR__.'/src', __DIR__.'/tests', __DIR__.'/config', __DIR__.'/migrations', __DIR__.'/public'])
+    ->append([__FILE__, __DIR__.'/bin/console', __DIR__.'/bin/check-dependency'])
     ->notPath(['bundles.php', 'reference.php']);
 
 return new PhpCsFixer\Config()
@@ -21,6 +21,8 @@ return new PhpCsFixer\Config()
         'ordered_imports' => ['imports_order' => ['class', 'function', 'const']],
         'php_unit_test_class_requires_covers' => false,
         'phpdoc_to_comment' => false,
+        'trailing_comma_in_multiline' => ['after_heredoc' => true, 'elements' => ['arguments', 'array_destructuring', 'arrays', 'match', 'parameters']],
+        'phpdoc_line_span' => array_fill_keys(['case', 'class', 'const', 'function', 'method', 'other', 'property', 'trait_import'], 'multi'),
     ])
     ->setCacheFile(__DIR__.'/var/.php-cs-fixer.cache')
     ->setFinder($finder);

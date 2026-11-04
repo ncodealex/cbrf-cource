@@ -15,18 +15,25 @@ use Symfony\Component\Clock\DatePoint;
 interface RateSetCacheInterface
 {
     /**
-     * @throws RateSetNotFound
-     * @throws RateSetCacheFailure
+     * Прочитать полный набор для точной календарной даты запроса.
+     *
+     * @throws RateSetNotFound     если ключ отсутствует
+     * @throws RateSetCacheFailure если кеш недоступен или содержимое повреждено
      */
     public function get(DatePoint $requestDate): RateSet;
 
     /**
-     * @throws RateSetCacheFailure
+     * Сохранить полный набор для календарной даты с настроенным TTL, заменяя прежний ключ.
+     *
+     * @throws RateSetCacheFailure если набор не удалось записать
      */
-    public function put(DatePoint $requestDate, RateSet $set): void;
+    public function put(
+        DatePoint $requestDate,
+        RateSet $set,
+    ): void;
 
     /**
-     * Удалить кеш набора для одной календарной даты.
+     * Удалить ключи всех переданных календарных дат; отсутствующие ключи пропускаются.
      *
      * @throws RateSetCacheFailure
      */

@@ -13,6 +13,10 @@ final class CbrNotSupportRateSetDate extends CbrGatewayException implements Gate
         public readonly ?int $httpStatus = null,
         ?\Throwable $previous = null,
     ) {
-        parent::__construct($message, 0, $previous);
+        parent::__construct(
+            $message,
+            0,
+            $previous,
+        );
     }
 }

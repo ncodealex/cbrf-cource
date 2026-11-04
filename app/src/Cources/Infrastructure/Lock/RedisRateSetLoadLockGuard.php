@@ -37,7 +37,7 @@ final readonly class RedisRateSetLoadLockGuard implements RateSetLoadLockGuard
         } catch (\Throwable $e) {
             $this->logger->warning(
                 'Потеряно или не подтверждено владение блокировкой',
-                $this->context + ['exception_class' => $e::class]
+                $this->context + ['exception_class' => $e::class],
             );
             throw new RateSetLoadLockFailure(previous: $e);
         }

@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 
+declare(strict_types=1);
+
 use App\Kernel;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 
@@ -14,7 +16,7 @@ if (!is_file(dirname(__DIR__).'/vendor/autoload_runtime.php')) {
 
 require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
 
-return function (array $context) {
+return static function (array $context) {
     // Symfony Runtime в debug-режиме выставляет umask 000 (файлы 666, каталоги 777).
     // Все процессы работают от одного пользователя, поэтому возвращаем стандартную маску.
     umask(0o022);

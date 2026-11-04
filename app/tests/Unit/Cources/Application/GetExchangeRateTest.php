@@ -29,7 +29,9 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 final class GetExchangeRateTest extends TestCase
 {
-    /** @return iterable<array{string, string, string}> */
+    /**
+     * @return iterable<array{string, string, string}>
+     */
     public static function pairs(): iterable
     {
         yield ['USD', 'RUB', '81.4500'];
@@ -40,7 +42,9 @@ final class GetExchangeRateTest extends TestCase
         yield ['RUB', 'RUB', '1'];
     }
 
-    /** @return iterable<array{numeric-string, string}> */
+    /**
+     * @return iterable<array{numeric-string, string}>
+     */
     public static function changes(): iterable
     {
         yield ['82.0000', '-0.5500 RUB'];
@@ -48,7 +52,9 @@ final class GetExchangeRateTest extends TestCase
         yield ['81.2000', '+0.2500 RUB'];
     }
 
-    /** @return iterable<array{string, string, string, int}> */
+    /**
+     * @return iterable<array{string, string, string, int}>
+     */
     public static function inputs(): iterable
     {
         foreach (['2026-10-23', '23.10.2026', '23/10/2026', '23-10-2026', '1992-07-02', '2026-11-01', '1992-07-01', '2026-11-02'] as $date) {
@@ -71,7 +77,7 @@ final class GetExchangeRateTest extends TestCase
                 $dates[] = $date->format('Y-m-d');
 
                 return 1 === \count($dates) ? RateSets::saturday() : RateSets::friday();
-            }
+            },
         );
         $result = (new GetExchangeRateHandler($provider, new ExchangeRateCalculator()))(
             new GetExchangeRateQuery(new DatePoint('2026-10-26'), $this->pair('USD'))
@@ -137,7 +143,9 @@ final class GetExchangeRateTest extends TestCase
         }
     }
 
-    /** @param numeric-string $previousValue */
+    /**
+     * @param numeric-string $previousValue
+     */
     #[DataProvider('changes')]
     public function testConsoleChangeSign(string $previousValue, string $expected): void
     {
@@ -157,9 +165,12 @@ final class GetExchangeRateTest extends TestCase
     {
         $retryAt = new DatePoint('2026-11-01 22:30:40 UTC');
         $failure = new class($retryAt) extends \RuntimeException implements RetryableFailure {
-            public function __construct(private readonly DatePoint $nextAttempt)
-            {
-                parent::__construct('Временный отказ');
+            public function __construct(
+                private readonly DatePoint $nextAttempt,
+            ) {
+                parent::__construct(
+                    'Временный отказ',
+                );
             }
 
             public function retryAt(): DatePoint
@@ -196,7 +207,9 @@ final class GetExchangeRateTest extends TestCase
             '--format' => $format,
         ], ['capture_stderr_separately' => true]));
         if (0 === $status && 'json' === $format) {
-            /** @var array<string, string|int> $data */
+            /**
+             * @var array<string, string|int> $data
+             */
             $data = json_decode($tester->getDisplay(), true, 512, \JSON_THROW_ON_ERROR);
             self::assertSame('81.4500', $data['rate']);
             $requestedDate = new \DateTimeImmutable(str_replace('/', '.', $date));

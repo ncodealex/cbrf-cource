@@ -11,11 +11,20 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 #[Exclude]
 final class RateSetLoadLockFailure extends \RuntimeException implements RetryableFailure
 {
-    public function __construct(string $message = 'Не удалось обеспечить блокировку загрузки курсов.', ?\Throwable $previous = null)
-    {
-        parent::__construct($message, 0, $previous);
+    public function __construct(
+        string $message = 'Не удалось обеспечить блокировку загрузки курсов.',
+        ?\Throwable $previous = null,
+    ) {
+        parent::__construct(
+            $message,
+            0,
+            $previous,
+        );
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function retryAt(): ?DatePoint
     {
         return null;

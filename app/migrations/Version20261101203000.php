@@ -18,13 +18,39 @@ final class Version20261101203000 extends AbstractMigration
     public function up(Schema $schema): void
     {
         $this->abortIf(!$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform, 'Для хранения курсов требуется PostgreSQL');
-        $this->addSql('ALTER TABLE rate_request_dates DROP CONSTRAINT rate_request_dates_effective_date_fkey');
-        $this->addSql('ALTER TABLE rate_request_dates ADD CONSTRAINT rate_request_dates_effective_date_fkey FOREIGN KEY (effective_date) REFERENCES rate_sets (effective_date) ON DELETE CASCADE');
+        $this->addSql(
+            <<<'SQL'
+                ALTER TABLE
+                    rate_request_dates
+                DROP CONSTRAINT rate_request_dates_effective_date_fkey
+                SQL,
+        );
+        $this->addSql(
+            <<<'SQL'
+                ALTER TABLE
+                    rate_request_dates
+                ADD
+                    CONSTRAINT rate_request_dates_effective_date_fkey FOREIGN KEY (effective_date) REFERENCES rate_sets (effective_date) ON DELETE CASCADE
+                SQL,
+        );
     }
 
     public function down(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE rate_request_dates DROP CONSTRAINT rate_request_dates_effective_date_fkey');
-        $this->addSql('ALTER TABLE rate_request_dates ADD CONSTRAINT rate_request_dates_effective_date_fkey FOREIGN KEY (effective_date) REFERENCES rate_sets (effective_date)');
+        $this->addSql(
+            <<<'SQL'
+                ALTER TABLE
+                    rate_request_dates
+                DROP CONSTRAINT rate_request_dates_effective_date_fkey
+                SQL,
+        );
+        $this->addSql(
+            <<<'SQL'
+                ALTER TABLE
+                    rate_request_dates
+                ADD
+                    CONSTRAINT rate_request_dates_effective_date_fkey FOREIGN KEY (effective_date) REFERENCES rate_sets (effective_date)
+                SQL,
+        );
     }
 }

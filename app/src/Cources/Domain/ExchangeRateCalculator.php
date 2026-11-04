@@ -24,8 +24,11 @@ final class ExchangeRateCalculator
      *
      * @throws RateNotFoundForDate|PreviousRateNotFound
      */
-    public function calculate(RateSet $current, RateSet $previous, CurrencyPair $pair): ExchangeRate
-    {
+    public function calculate(
+        RateSet $current,
+        RateSet $previous,
+        CurrencyPair $pair,
+    ): ExchangeRate {
         if ($previous->date() >= $current->date()) {
             throw new InvalidRateDateOrder(\sprintf('Предыдущий набор курсов от %s должен предшествовать текущему от %s', $previous->date(), $current->date()));
         }
@@ -62,8 +65,10 @@ final class ExchangeRateCalculator
     /**
      *   Курс за 1 единицу для валютной пары.
      */
-    public function rate(RateSet $set, CurrencyPair $pair): Number
-    {
+    public function rate(
+        RateSet $set,
+        CurrencyPair $pair,
+    ): Number {
         if ($pair->currency->equals($pair->base)) {
             return new Number('1');
         }

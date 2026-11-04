@@ -10,7 +10,9 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 #[Exclude]
 final readonly class RateLimitDecision
 {
-    public function __construct(public bool $accepted, public DatePoint $retryAt)
-    {
+    public function __construct(
+        public bool $accepted,
+        public DatePoint $retryAt,
+    ) {
     }
 }

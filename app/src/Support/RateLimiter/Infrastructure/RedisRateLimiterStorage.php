@@ -8,13 +8,19 @@ use Symfony\Component\RateLimiter\LimiterStateInterface;
 use Symfony\Component\RateLimiter\Policy\TokenBucket;
 use Symfony\Component\RateLimiter\Storage\StorageInterface;
 
-/** В отличие от кеша, сбои хранилища лимитера не могут трактоваться как отсутствие состояния. */
+/**
+ * В отличие от кеша, сбои хранилища лимитера не могут трактоваться как отсутствие состояния.
+ */
 final readonly class RedisRateLimiterStorage implements StorageInterface
 {
-    public function __construct(private \Redis $redis)
-    {
+    public function __construct(
+        private \Redis $redis,
+    ) {
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function save(LimiterStateInterface $limiterState): void
     {
         $ttl = $limiterState->getExpirationTime();
@@ -26,6 +32,9 @@ final readonly class RedisRateLimiterStorage implements StorageInterface
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function fetch(string $limiterStateId): ?LimiterStateInterface
     {
         $key = $this->key($limiterStateId);
@@ -48,6 +57,9 @@ final readonly class RedisRateLimiterStorage implements StorageInterface
         return $state;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function delete(string $limiterStateId): void
     {
         if (false === $this->redis->del($this->key($limiterStateId))) {

@@ -81,14 +81,18 @@ final readonly class GetExchangeRateCommand
         return Command::SUCCESS;
     }
 
-    private function renderJson(SymfonyStyle $io, GetExchangeRateResult $result): void
-    {
+    private function renderJson(
+        SymfonyStyle $io,
+        GetExchangeRateResult $result,
+    ): void {
         $data = JsonResponse::data($result);
         $io->writeln(json_encode($data, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE | \JSON_PRETTY_PRINT));
     }
 
-    private function renderTable(SymfonyStyle $io, GetExchangeRateResult $result): void
-    {
+    private function renderTable(
+        SymfonyStyle $io,
+        GetExchangeRateResult $result,
+    ): void {
         $io->title('КУРС ВАЛЮТ ЦБ РФ');
         $io->text('Валютная пара');
         $io->definitionList(

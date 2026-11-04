@@ -59,7 +59,7 @@ return [
                     ],
                 ],
             ],
-            'routing' => [App\Cources\Application\Message\ProcessRateImportMessage::class => 'rates_import'],
+            'routing' => [App\Import\Application\Message\ProcessRateImportMessage::class => 'rates_import'],
         ],
     ],
 ];

@@ -14,5 +14,14 @@ use App\Cources\Domain\ValueObject\CurrencyCode;
  */
 interface CurrencyPairFactoryInterface
 {
-    public function of(string $currency, string $base = CurrencyCode::RUB): CurrencyPair;
+    /**
+     * Создать валютную пару из буквенных кодов; по умолчанию базовой валютой служит рубль.
+     * Метод не запрашивает котировки и не проверяет поддержку пары внешним источником.
+     *
+     * @throws \App\Cources\Domain\Exception\InvalidCurrencyCode если код пустой или имеет некорректный формат
+     */
+    public function of(
+        string $currency,
+        string $base = CurrencyCode::RUB,
+    ): CurrencyPair;
 }

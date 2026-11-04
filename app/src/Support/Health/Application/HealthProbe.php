@@ -17,13 +17,20 @@ interface HealthProbe
 {
     public const string TAG = 'app.health_probe';
 
-    /** Имя проверки в ответе readiness, например "postgres". */
+    /**
+     * Имя проверки в ответе readiness, например "postgres".
+     */
     public function name(): string;
 
-    /** Отключённая проверка не выполняется и не попадает в ответ. */
+    /**
+     * Отключённая проверка не выполняется и не попадает в ответ.
+     */
     public function isEnabled(): bool;
 
     /**
+     * Выполнить ограниченную по времени проверку доступности зависимости.
+     * Успешное завершение означает готовность зависимости в момент проверки.
+     *
      * @throws \Throwable если зависимость недоступна
      */
     public function check(): void;

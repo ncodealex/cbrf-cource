@@ -10,7 +10,9 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 #[Exclude]
 final readonly class RetryDecision
 {
-    public function __construct(public bool $allowed, public ?DatePoint $retryAt)
-    {
+    public function __construct(
+        public bool $allowed,
+        public ?DatePoint $retryAt,
+    ) {
     }
 }

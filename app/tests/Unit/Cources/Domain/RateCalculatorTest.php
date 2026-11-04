@@ -86,7 +86,7 @@ final class RateCalculatorTest extends TestCase
         $result = $this->calculator->calculate(
             RateSets::saturday(),
             RateSets::friday(),
-            $this->pair('INR', 'USD')
+            $this->pair('INR', 'USD'),
         );
 
         self::assertSame('INR', $result->currentRateItem->code->value);
@@ -102,7 +102,7 @@ final class RateCalculatorTest extends TestCase
         $result = $this->calculator->calculate(
             RateSets::saturday(),
             RateSets::friday(),
-            $this->pair('RUB', 'USD')
+            $this->pair('RUB', 'USD'),
         );
 
         self::assertSame('RUB', $result->currentRateItem->code->value);

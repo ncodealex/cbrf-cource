@@ -15,7 +15,9 @@ use Symfony\Component\Clock\DatePoint;
  */
 final class RateSets
 {
-    /** Пятница 23.10.2026 — предыдущий набор. */
+    /**
+     * Пятница 23.10.2026 — предыдущий набор.
+     */
     public static function friday(): RateSet
     {
         return self::create('2026-10-23', [
@@ -26,7 +28,9 @@ final class RateSets
         ]);
     }
 
-    /** Суббота 24.10.2026 — текущий набор. */
+    /**
+     * Суббота 24.10.2026 — текущий набор.
+     */
     public static function saturday(): RateSet
     {
         return self::create('2026-10-24', [

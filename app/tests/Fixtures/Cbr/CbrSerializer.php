@@ -17,7 +17,9 @@ use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
 
-/** Serializer с теми же механизмами атрибутов и типов, что использует FrameworkBundle. */
+/**
+ * Serializer с теми же механизмами атрибутов и типов, что использует FrameworkBundle.
+ */
 final class CbrSerializer
 {
     public static function create(): Serializer

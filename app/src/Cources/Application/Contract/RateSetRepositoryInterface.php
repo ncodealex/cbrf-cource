@@ -43,7 +43,10 @@ interface RateSetRepositoryInterface
      *
      * @throws RateSetConflict
      */
-    public function save(DatePoint $requestDate, RateSet $rateSet): void;
+    public function save(
+        DatePoint $requestDate,
+        RateSet $rateSet,
+    ): void;
 
     /**
      * Получить все календарные даты, связанные с набором выбранной даты.

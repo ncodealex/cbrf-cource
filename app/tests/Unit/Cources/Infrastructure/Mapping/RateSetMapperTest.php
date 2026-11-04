@@ -31,7 +31,9 @@ final class RateSetMapperTest extends TestCase
         self::assertSame(100, $restored->items['INR']->nominal);
     }
 
-    /** @return iterable<string, array{mixed}> */
+    /**
+     * @return iterable<string, array{mixed}>
+     */
     public static function invalidPayloads(): iterable
     {
         yield 'не объект' => [null];

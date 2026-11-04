@@ -11,13 +11,19 @@ ini_set('log_errors', '0');
 require dirname(__DIR__).'/vendor/autoload.php';
 
 try {
-    $parameters = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+    $parameters = json_decode(stream_get_contents(\STDIN), true, flags: \JSON_THROW_ON_ERROR);
 
     switch ($argv[1] ?? '') {
         case 'postgres':
             $connection = Doctrine\DBAL\DriverManager::getConnection($parameters);
             try {
-                if (1 !== (int) $connection->executeQuery('SELECT 1')->fetchOne()) {
+                $result = $connection->executeQuery(
+                    <<<'SQL'
+                        SELECT 1
+                        SQL,
+                );
+                $probeValue = $result->fetchOne();
+                if (1 !== (int) $probeValue) {
                     exit(1);
                 }
             } finally {

@@ -25,7 +25,9 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 final class RateSetResolverTest extends RateSetStorageTestCase
 {
-    /** @return iterable<string, array{bool}> */
+    /**
+     * @return iterable<string, array{bool}>
+     */
     public static function redisAvailability(): iterable
     {
         yield 'Redis доступен' => [true];

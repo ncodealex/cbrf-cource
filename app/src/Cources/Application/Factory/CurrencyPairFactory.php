@@ -15,8 +15,10 @@ final class CurrencyPairFactory implements CurrencyPairFactoryInterface
     /**
      * {@inheritdoc}
      */
-    public function of(string $currency, string $base = CurrencyCode::RUB): CurrencyPair
-    {
+    public function of(
+        string $currency,
+        string $base = CurrencyCode::RUB,
+    ): CurrencyPair {
         return new CurrencyPair(CurrencyCode::fromString($currency), CurrencyCode::fromString($base));
     }
 }

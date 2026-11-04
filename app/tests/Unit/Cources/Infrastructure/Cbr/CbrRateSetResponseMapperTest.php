@@ -75,7 +75,7 @@ final class CbrRateSetResponseMapperTest extends TestCase
             'xml',
             [
                 XmlEncoder::TYPE_CAST_ATTRIBUTES => false,
-            ]
+            ],
         );
         self::assertCount(5, $response->items);
         self::assertSame('24.10.2026', $response->effectiveDate);
@@ -83,7 +83,7 @@ final class CbrRateSetResponseMapperTest extends TestCase
         self::assertSame('1', $response->items[0]->nominal);
         self::assertSame(
             RateSets::saturday()->contentHash(),
-            new CbrRateSetResponseMapper()->map($response)->contentHash()
+            new CbrRateSetResponseMapper()->map($response)->contentHash(),
         );
     }
 
@@ -94,7 +94,7 @@ final class CbrRateSetResponseMapperTest extends TestCase
             $xml,
             RateSetResponse::class,
             'xml',
-            [XmlEncoder::TYPE_CAST_ATTRIBUTES => false]
+            [XmlEncoder::TYPE_CAST_ATTRIBUTES => false],
         );
         self::assertCount(1, $response->items);
         $item = $response->items[0];

@@ -60,8 +60,10 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
     /**
      * {@inheritdoc}
      */
-    public function save(DatePoint $requestDate, RateSet $rateSet): void
-    {
+    public function save(
+        DatePoint $requestDate,
+        RateSet $rateSet,
+    ): void {
         $requestedDate = $requestDate->format(DateFormatInterface::ISO);
         $effectiveDate = $rateSet->date();
         $rates = json_encode(

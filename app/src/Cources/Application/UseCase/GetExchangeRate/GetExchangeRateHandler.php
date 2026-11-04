@@ -13,7 +13,7 @@ final readonly class GetExchangeRateHandler
     public function __construct(
         #[Autowire(lazy: true)]
         private RateSetProviderInterface $provider,
-        private ExchangeRateCalculator $calculator
+        private ExchangeRateCalculator $calculator,
     ) {
     }
 
@@ -26,7 +26,7 @@ final readonly class GetExchangeRateHandler
         return GetExchangeRateResult::fromDomain(
             $query->requestedDate,
             $query->pair,
-            $rate
+            $rate,
         );
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Cources\Infrastructure\Cbr;
 
 use App\Cources\Application\Contract\ExternalRateSetGatewayInterface;
-use App\Cources\Application\Import\RateImportIncident;
 use App\Cources\Domain\Entity\RateSet;
 use App\Cources\Infrastructure\Cbr\Exception\CbrGatewayException;
 use App\Cources\Infrastructure\Cbr\Exception\CbrHttpFailure;
@@ -17,6 +16,7 @@ use App\Cources\Infrastructure\Cbr\Exception\CbrUnavailable;
 use App\Cources\Infrastructure\Cbr\Mapper\CbrRateSetResponseMapper;
 use App\Cources\Infrastructure\Cbr\Response\RateSetResponse;
 use App\Shared\Domain\DateFormatInterface;
+use App\Support\Logging\Application\IncidentId;
 use App\Support\RateLimiter\Application\RequestRateLimiter;
 use App\Support\Retry\Application\RetryableFailure;
 use Psr\Log\LoggerInterface;
@@ -66,8 +66,10 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
      * @throws RetryableFailure
      * @throws ServerExceptionInterface
      */
-    private function request(array $query, ?DatePoint $requestedDate = null): RateSet
-    {
+    private function request(
+        array $query,
+        ?DatePoint $requestedDate = null,
+    ): RateSet {
         $decision = $this->rateLimiter->acquire();
         if (!$decision->accepted) {
             $this->logger->notice('Достигнут глобальный лимит обращений к ЦБ', [
@@ -98,9 +100,11 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
      * @throws RedirectionExceptionInterface
      * @throws ServerExceptionInterface
      */
-    private function do(array $query, ?DatePoint $requestedDate): RateSet
-    {
-        $requestId = RateImportIncident::create();
+    private function do(
+        array $query,
+        ?DatePoint $requestedDate,
+    ): RateSet {
+        $requestId = IncidentId::create();
         $start = hrtime(true);
         $context = ['request_id' => $requestId, 'method' => 'GET', 'endpoint' => '/scripts/XML_daily.asp', 'requested_date' => $requestedDate?->format(DateFormatInterface::ISO)];
         $this->logHttp('info', 'cbr.request', $context);
@@ -143,8 +147,11 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
      *
      * @return array<string, mixed> метаданные без учётных данных клиента
      */
-    private function responseMetadata(?string $body, ?int $status, int $start): array
-    {
+    private function responseMetadata(
+        ?string $body,
+        ?int $status,
+        int $start,
+    ): array {
         $metadata = ['http_status' => $status, 'duration_ms' => (hrtime(true) - $start) / 1000000, 'response_bytes' => null === $body ? 0 : \strlen($body)];
         if (null !== $body) {
             $metadata['sha256'] = hash('sha256', $body);
@@ -169,8 +176,11 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
      *
      * @param array<string, mixed> $context структурированный контекст события
      */
-    private function logHttp(string $level, string $event, array $context): void
-    {
+    private function logHttp(
+        string $level,
+        string $event,
+        array $context,
+    ): void {
         try {
             $this->httpLogger?->log($level, $event, $context);
         } catch (\Throwable) {

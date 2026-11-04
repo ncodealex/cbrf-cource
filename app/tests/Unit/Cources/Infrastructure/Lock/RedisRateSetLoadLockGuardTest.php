@@ -23,7 +23,9 @@ final class RedisRateSetLoadLockGuardTest extends TestCase
         new RedisRateSetLoadLockGuard($lock, 30.0, new NullLogger(), [])->refresh();
     }
 
-    /** @return iterable<string, array{bool, bool}> */
+    /**
+     * @return iterable<string, array{bool, bool}>
+     */
     public static function lostOwnership(): iterable
     {
         yield 'истёк TTL' => [true, true];

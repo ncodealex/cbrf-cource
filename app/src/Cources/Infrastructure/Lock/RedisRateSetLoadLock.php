@@ -30,8 +30,13 @@ final readonly class RedisRateSetLoadLock implements RateSetLoadLockInterface
         }
     }
 
-    public function synchronized(DatePoint $requestedDate, callable $operation): RateSet
-    {
+    /**
+     * {@inheritdoc}
+     */
+    public function synchronized(
+        DatePoint $requestedDate,
+        callable $operation,
+    ): RateSet {
         $key = 'cbr:rateset:load:'.$requestedDate->format(DateFormatInterface::ISO);
         $context = ['requested_date' => $requestedDate->format(DateFormatInterface::ISO), 'lock_key' => $key];
         $lock = $this->factory->createLock($key, $this->ttl, false);

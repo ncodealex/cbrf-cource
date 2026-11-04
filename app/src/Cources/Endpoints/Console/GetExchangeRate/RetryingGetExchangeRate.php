@@ -44,8 +44,10 @@ final readonly class RetryingGetExchangeRate
         }
     }
 
-    private function waitForRetry(RetryDecision $decision, DatePoint $deadline): bool
-    {
+    private function waitForRetry(
+        RetryDecision $decision,
+        DatePoint $deadline,
+    ): bool {
         if (!$decision->allowed || null === $decision->retryAt) {
             return false;
         }

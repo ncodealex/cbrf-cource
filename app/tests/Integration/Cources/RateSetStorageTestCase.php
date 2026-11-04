@@ -12,7 +12,9 @@ use DoctrineMigrations\Version20261030000000;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** @phpstan-import-type Params from DriverManager */
+/**
+ * @phpstan-import-type Params from DriverManager
+ */
 abstract class RateSetStorageTestCase extends KernelTestCase
 {
     protected Connection $connection;
@@ -23,11 +25,23 @@ abstract class RateSetStorageTestCase extends KernelTestCase
     {
         parent::setUp();
         $this->schema = 'rateset_test_'.bin2hex(random_bytes(8));
-        /** @var Params $params параметры существующего PostgreSQL-подключения */
+        /**
+         * @var Params $params параметры существующего PostgreSQL-подключения
+         */
         $params = self::getContainer()->get(Connection::class)->getParams();
         $this->connection = DriverManager::getConnection($params);
-        $this->connection->executeStatement('CREATE SCHEMA '.$this->schema);
-        $this->connection->executeStatement('SET search_path TO '.$this->schema);
+        $this->connection->executeStatement(\sprintf(
+            <<<'SQL'
+                CREATE SCHEMA %s
+                SQL,
+            $this->schema,
+        ));
+        $this->connection->executeStatement(\sprintf(
+            <<<'SQL'
+                SET search_path TO %s
+                SQL,
+            $this->schema,
+        ));
         require_once \dirname(__DIR__, 3).'/migrations/Version20261030000000.php';
         $migration = new Version20261030000000($this->connection, new NullLogger());
         $migration->up(new Schema());
@@ -46,7 +60,12 @@ abstract class RateSetStorageTestCase extends KernelTestCase
             $this->connection->rollBack();
         }
         // Удаляется только созданная этим тестом изолированная схема.
-        $this->connection->executeStatement('DROP SCHEMA '.$this->schema.' CASCADE');
+        $this->connection->executeStatement(\sprintf(
+            <<<'SQL'
+                DROP SCHEMA %s CASCADE
+                SQL,
+            $this->schema,
+        ));
         $this->connection->close();
     }
 }

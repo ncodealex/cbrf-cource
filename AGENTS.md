@@ -29,10 +29,17 @@ app/src/
 │   │   ├── Persistence/
 │   │   └── Mapping/
 │   └── Endpoints/Console/         # команды и форматирование вывода
+├── Import/                        # асинхронное планирование и исполнение импорта
+│   ├── Domain/                    # Entity/ImportJob, Enum, ValueObject, Exception
+│   ├── Application/               # Contract, DTO, Configuration, Message, Factory, UseCase
+│   ├── Infrastructure/            # Persistence (DBAL), Messenger
+│   └── Endpoints/                 # Console и Messenger
 ├── Support/
 │   ├── Health/                    # liveness/readiness и инфраструктурные пробы
 │   └── RateLimiter/               # ограничение частоты запросов
-└── Shared/Domain/                 # общие даты, форматы и базовые исключения
+└── Shared/
+    ├── Contracts/                # публичные межмодульные API Rates и Import
+    └── Domain/                   # общие даты, форматы и базовые исключения
 ```
 
 ### UseCase — единая реализация сценария
@@ -62,7 +69,7 @@ app/src/
 
 - Support содержит самостоятельные технические возможности с Application-контрактами и Infrastructure-реализациями. Domain и Endpoints добавляются по необходимости, пустые слои не создавать.
 - Бизнес-домен Cources не зависит от Support. Прикладной/инфраструктурный код использует публичные Application-контракты Support, а не его реализации. Support не должен знать конкретные реализации Cources.
-- Shared не зависит от Cources или Support. Не переносить туда бизнес-модели, контракты курсов, Health или RateLimiter.
+- Shared не зависит от Cources, Import или Support. Shared/Contracts содержит только согласованные межмодульные API и нейтральные ошибки; внутренние контракты хранения остаются в своих модулях.
 - Не создавать каталоги `Utils`, `Helpers`, `Common`: используй конкретные роли `Parser`, `Mapper`, `Factory`, `Policy`, `Calculator` в модуле-владельце.
 - Клиент ЦБ принадлежит `Cources/Infrastructure/Cbr`. Не переносить его в Support или отдельный Integrations только по аналогии с другим проектом.
 
@@ -73,11 +80,11 @@ app/src/
 | Слой | Допустимые зависимости |
 |---|---|
 | Domain | Собственные доменные типы, Shared.Domain; разрешённые Deptrac API DatePoint, Doctrine Mapping/Collections |
-| Application | Domain, Shared.Domain, Application-контракты Support; DatePoint, ClockInterface, DI-атрибуты Symfony, PSR |
+| Application | Domain, Shared.Domain, Shared.Contracts, Application-контракты Support; DatePoint, ClockInterface, DI-атрибуты Symfony, PSR |
 | Infrastructure | Domain, Application, Shared, Application-контракты Support, внешние библиотеки |
 | Endpoints | Application, Domain, общие типы и транспортные API Symfony; без конкретных Infrastructure-реализаций |
 
-Точные автоматические ограничения — в `app/deptrac.yaml`. Его общие слои объединяют несколько модулей, поэтому успешная проверка сама по себе не гарантирует соблюдение всех модульных границ из этого документа. Не расширяй разрешения Vendor и baseline ради обхода нарушения.
+Точные автоматические ограничения — в `app/deptrac.yaml`. Deptrac отдельно контролирует Cources и Import, включая четыре слоя каждого модуля и Shared.Contracts. Не расширяй разрешения Vendor и baseline ради обхода нарушения.
 
 ## Правила реализации
 
@@ -135,8 +142,8 @@ app/src/
 - `CbrRateSetGateway` использует scoped `cbr.client`, endpoint `/scripts/XML_daily.asp`, параметр `date_req` в формате `d/m/Y`; `fetchLatest()` не передаёт дату.
 - Поток преобразования: XML → Symfony Serializer/Denormalizer → `RateSetResponse`/`RateItemResponse` → `CbrRateSetResponseMapper` → Domain. DTO внешней системы не должны проникать в UseCase или Domain.
 - Различай HTTP 429 (`CbrRateLimited`), транспортные/прочие HTTP-ошибки (`CbrUnavailable`), ошибки сериализации (`CbrSerialization`) и некорректные данные (`CbrInvalidResponse`). Сохраняй ограничения XML-парсинга и сетевые таймауты; не логируй полный ответ или credentials.
-- RateLimiter уже имеет контракт и реализацию, но текущий Gateway его не вызывает. Не предполагай наличие ограничения запросов, автоматических повторов или защиты от одновременного cache miss.
-- Наличие Messenger/Scheduler в зависимостях не означает реализацию фонового импорта, backfill или распределённых блокировок для курсов.
+- CbrRateSetGateway вызывает общий RateLimiter. Resolver использует Redis load lock с повторной проверкой БД; не изменять настройки лимитера при рефакторинге импорта.
+- Асинхронный импорт реализован в Import через PostgreSQL Jobs, Dispatcher и Messenger; транспорт и очередь — rates_import. RetryPolicy принадлежит Support/Retry. Наличие Scheduler само по себе не означает дополнительных фоновых сценариев.
 
 ## Команды и тестирование
 
@@ -182,3 +189,17 @@ make cs-fix                           # изменяет форматирова�
 - Документация хранения местами описывает более строгую XML-проверку и прежний статус RateLimiter. Проверяй фактические Gateway/Serializer и подключение сервисов, прежде чем утверждать наличие защиты.
 
 Не выполнять массовые переносы, переименование Cources или исправление этих расхождений попутно с другой задачей. Не переносить из чужих проектов правила legacy frontend, Bruno, Sync, getter traits или механизмы событий, которых здесь нет.
+
+## Правила модуля Import и межмодульной интеграции
+
+- Import не импортирует PHP-классы Cources; Cources не импортирует PHP-классы Import. Публичная точка взаимодействия — Shared/Contracts. Domain не использует DI, DBAL, Messenger или Monolog.
+- RateImportStatus — единственный владелец матрицы действий: allows(), assertAllows(), allowedFor(). allowedFor() вычисляется через allows(); отдельные TransitionPolicy запрещены.
+- ImportJob изменяет собственное состояние через claim, complete, defer, fail, recover, resetForRefresh, repairDone и retryError. RetryPolicy принимает решение о повторе в Application.
+- ImportJobExecution — immutable fencing token успешного захвата (DatePoint, version, attempts). Recovery читает ImportJob, а не token исполнения. PostgreSQL повторно проверяет version при записи.
+- ImportJobRepositoryInterface изменяет задания; ImportJobQueryRepositoryInterface читает снимки, ошибки и прогресс. Индивидуальные claim/finish/recover используют короткие транзакции с блокировкой строки и доменными операциями; массовые reset/retry остаются bulk SQL. Диспетчер сохраняет advisory lock и FOR UPDATE SKIP LOCKED.
+- RateSetImportGateway реализован в Cources: успешный ensureAvailable подтверждает дату в PostgreSQL и обходит Redis-only результат. Необязательная executionVersion включает ImportExecutionFence: HTTP выполняется вне транзакции, сохранение проверяет Processing/version под блокировкой строки Job.
+- ImportJobResetter и хранилище Refresh используют один DBAL Connection и одну транзакцию. Refresh увеличивает версии перед удалением RateSet. StaleImportExecution прерывает устаревшего Worker без подтверждения новой даты.
+- Явная техническая SQL-граница: Import Persistence пока читает rate_request_dates для согласованных statistics/progress, проверки Complete и атомарного repairDone. Эти запросы намеренно сохранены в PostgreSQL; не заменять их независимыми чтениями с ослаблением конкурентных гарантий. В PHP межмодульных зависимостей нет.
+- Старый FQCN сообщения поддерживает временный class_alias в Import/Infrastructure/Messenger/legacy-message.php, подключённый Composer files. Не удалять совместимость до освобождения старых очередей и failed transport. Новые сообщения используют Import/Application/Message, прежнюю очередь rates_import.
+- Корреляционные идентификаторы принадлежат Support/Logging/Application/IncidentId, не Import. XML и файловые каналы логирования сохраняются.
+- Unit-тесты импорта находятся в tests/Unit/Import, PostgreSQL/E2E — tests/Integration/Import, subprocess гонок — tests/Fixtures/Import. Для полного прогона обязательны изолированные PostgreSQL, Redis, RabbitMQ и CBR Stub.

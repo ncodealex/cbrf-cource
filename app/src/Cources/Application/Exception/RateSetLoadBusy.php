@@ -11,9 +11,15 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 #[Exclude]
 final class RateSetLoadBusy extends \RuntimeException implements AdmissionFailure
 {
-    public function __construct(string $message = 'Набор курсов уже загружается другим исполнителем.', ?\Throwable $previous = null)
-    {
-        parent::__construct($message, 0, $previous);
+    public function __construct(
+        string $message = 'Набор курсов уже загружается другим исполнителем.',
+        ?\Throwable $previous = null,
+    ) {
+        parent::__construct(
+            $message,
+            0,
+            $previous,
+        );
     }
 
     public function retryAt(): ?DatePoint

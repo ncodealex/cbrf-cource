@@ -34,12 +34,22 @@ final readonly class RateSetResolver implements RateSetProviderInterface
 
     /**
      * {@inheritdoc}
+     *
+     * confirmedOnly обходит Redis: импорт требует сохранённой календарной связи.
+     * persist ограждает только запись в БД; внешний запрос выполняется до его вызова.
+     *
+     * @param \Closure(\Closure(): void): void|null $persist транзакционная защита сохранения
      */
-    public function resolve(DatePoint $requestDate): RateSet
-    {
+    public function resolve(
+        DatePoint $requestDate,
+        ?\Closure $persist = null,
+        bool $confirmedOnly = false,
+    ): RateSet {
         $this->assert($requestDate);
         try {
-            return $this->cache->get($requestDate);
+            if (!$confirmedOnly) {
+                return $this->cache->get($requestDate);
+            }
         } catch (RateSetNotFound) {
             /*
              * Отсутствие записи в кеше является штатным событием.
@@ -57,7 +67,7 @@ final readonly class RateSetResolver implements RateSetProviderInterface
              */
             return $this->loadLock->synchronized(
                 $requestDate,
-                function (RateSetLoadLockGuard $guard) use ($requestDate): RateSet {
+                function (RateSetLoadLockGuard $guard) use ($requestDate, $persist): RateSet {
                     /*
                      * Перед запросом повторно проверяем БД: другой воркер
                      * мог сохранить набор до получения блокировки.
@@ -68,7 +78,7 @@ final readonly class RateSetResolver implements RateSetProviderInterface
                             'Набор курсов найден в БД после получения блокировки',
                             [
                                 'requested_date' => $requestDate->format(DateFormatInterface::ISO),
-                            ]
+                            ],
                         );
                     } catch (RateSetNotFound) {
                         /*
@@ -82,7 +92,11 @@ final readonly class RateSetResolver implements RateSetProviderInterface
                          */
                         $guard->refresh();
                         try {
-                            $this->repository->save($requestDate, $rateSet);
+                            if (null === $persist) {
+                                $this->repository->save($requestDate, $rateSet);
+                            } else {
+                                $persist(fn () => $this->repository->save($requestDate, $rateSet));
+                            }
                         } catch (\Throwable $e) {
                             $this->logger->error('Не удалось сохранить набор курсов', [
                                 'requested_date' => $requestDate->format(DateFormatInterface::ISO),
@@ -97,7 +111,7 @@ final readonly class RateSetResolver implements RateSetProviderInterface
                     $this->warmCache($requestDate, $rateSet);
 
                     return $rateSet;
-                }
+                },
             );
         }
         /*
@@ -113,8 +127,10 @@ final readonly class RateSetResolver implements RateSetProviderInterface
         $this->gatewayDatePolicy->assertAllowed($requestDate);
     }
 
-    private function warmCache(DatePoint $requestDate, RateSet $rateSet): void
-    {
+    private function warmCache(
+        DatePoint $requestDate,
+        RateSet $rateSet,
+    ): void {
         try {
             $this->cache->put($requestDate, $rateSet);
         } catch (RateSetCacheFailure $e) {

@@ -15,7 +15,9 @@ final class HealthEndpointsTest extends WebTestCase
 {
     private const string UNREACHABLE_REDIS_URL = 'redis://127.0.0.1:1';
 
-    /** @var array<string, mixed> */
+    /**
+     * @var array<string, mixed>
+     */
     private array $originalEnv = [];
 
     protected function tearDown(): void

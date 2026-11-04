@@ -25,11 +25,17 @@ final class CbrRateSetDatePolicy implements ExternalRateSetGatewayDatePolicyInte
         $this->minRequestDate = DatePointParser::parse(self::MIN_REQUEST_DATE);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function minRequestDate(): DatePoint
     {
         return $this->minRequestDate;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function assertAllowed(DatePoint $date): void
     {
         $iso = DatePointParser::dateOf($date)->format(DateFormatInterface::ISO);

@@ -15,19 +15,30 @@ final readonly class PostgresHealthProbe implements HealthProbe
     ) {
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function name(): string
     {
         return 'postgres';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isEnabled(): bool
     {
         return true;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function check(): void
     {
-        /** @var array<string, mixed> $parameters параметры подключения DBAL */
+        /**
+         * @var array<string, mixed> $parameters параметры подключения DBAL
+         */
         $parameters = $this->connection->getParams();
         $this->process->check('postgres', $parameters);
     }

@@ -13,7 +13,9 @@ if (false === $handle) {
     throw new RuntimeException('Не удалось открыть состояние Stub.');
 }
 flock($handle, \LOCK_EX);
-/** @var array{mode?: string, count?: int} $state */
+/**
+ * @var array{mode?: string, count?: int} $state
+ */
 $state = json_decode(stream_get_contents($handle) ?: '{}', true, flags: \JSON_THROW_ON_ERROR);
 $state += ['mode' => 'ok', 'count' => 0];
 if ('/control' === $path && 'POST' === $_SERVER['REQUEST_METHOD']) {

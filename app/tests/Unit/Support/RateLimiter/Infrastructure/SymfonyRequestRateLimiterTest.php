@@ -15,7 +15,9 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 final class SymfonyRequestRateLimiterTest extends TestCase
 {
-    /** @return iterable<string, array{bool}> */
+    /**
+     * @return iterable<string, array{bool}>
+     */
     public static function decisions(): iterable
     {
         yield 'токен получен' => [true];

@@ -44,6 +44,7 @@ return [
             'exclude' => [
                 '../src/Kernel.php',
                 '../src/Cources/Domain/',
+                '../src/Import/Domain/',
                 '../src/Cources/Infrastructure/Cbr/Response/',
                 '../src/Cources/Application/Exception/',
                 '../src/Cources/Infrastructure/Mapping/InvalidRateSetPayload.php',

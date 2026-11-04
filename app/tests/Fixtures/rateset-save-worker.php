@@ -21,9 +21,24 @@ try {
     if (1 !== preg_match('/^rateset_test_[0-9a-f]{16}$/D', $schema)) {
         throw new InvalidArgumentException('Некорректная тестовая схема');
     }
-    $connection->executeStatement('SET search_path TO '.$schema);
-    $connection->executeStatement("SELECT set_config('application_name', :name, false)", ['name' => $schema]);
-    $connection->executeStatement("SET lock_timeout TO '10s'");
+    $connection->executeStatement(sprintf(
+        <<<'SQL'
+            SET search_path TO %s
+            SQL,
+        $schema,
+    ));
+    $connection->executeStatement(
+        <<<'SQL'
+            SELECT
+                set_config('application_name', :name, false)
+            SQL,
+        ['name' => $schema],
+    );
+    $connection->executeStatement(
+        <<<'SQL'
+            SET lock_timeout TO '10s'
+            SQL,
+    );
     $set = match ($input['variant']) {
         'same' => RateSets::saturday(),
         'content' => RateSets::create('2026-10-24', [['USD', 'R01235', 1, '1.0000']]),

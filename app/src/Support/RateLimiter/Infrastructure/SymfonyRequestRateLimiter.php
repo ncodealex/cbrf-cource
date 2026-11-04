@@ -23,6 +23,9 @@ final readonly class SymfonyRequestRateLimiter implements RequestRateLimiter
     ) {
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function acquire(): RateLimitDecision
     {
         try {

@@ -21,11 +21,11 @@ final readonly class RateSet
     public array $items;
 
     /**
-     * @param iterable<RateItem> $rateItems
+     * @param iterable<mixed> $rateItems
      */
     public function __construct(
         public DatePoint $effectiveDate,
-        iterable $rateItems
+        iterable $rateItems,
     ) {
         $byCode = [];
         foreach ($rateItems as $rateItem) {

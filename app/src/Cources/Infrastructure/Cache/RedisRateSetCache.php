@@ -29,6 +29,9 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function get(DatePoint $requestDate): RateSet
     {
         try {
@@ -54,8 +57,13 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         }
     }
 
-    public function put(DatePoint $requestDate, RateSet $set): void
-    {
+    /**
+     * {@inheritdoc}
+     */
+    public function put(
+        DatePoint $requestDate,
+        RateSet $set,
+    ): void {
         try {
             $payload = json_encode($this->mapper->toArray($set), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
             if (true !== $this->redis->set($this->key($requestDate), $payload, ['ex' => $this->ttl])) {
@@ -66,6 +74,9 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function delete(DatePoint ...$requestDates): void
     {
         if ([] === $requestDates) {

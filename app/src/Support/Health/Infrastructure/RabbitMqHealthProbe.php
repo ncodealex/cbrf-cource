@@ -12,7 +12,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 final readonly class RabbitMqHealthProbe implements HealthProbe
 {
-    /** @param array<string, mixed> $connectionOptions */
+    /**
+     * @param array<string, mixed> $connectionOptions
+     */
     public function __construct(
         #[Autowire(env: 'MESSENGER_TRANSPORT_DSN')]
         private string $dsn,
@@ -24,16 +26,25 @@ final readonly class RabbitMqHealthProbe implements HealthProbe
     ) {
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function name(): string
     {
         return 'rabbitmq';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isEnabled(): bool
     {
         return $this->enabled;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function check(): void
     {
         $this->process->check('rabbitmq', [

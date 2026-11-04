@@ -28,9 +28,19 @@ final class InfrastructureSmokeTest extends KernelTestCase
     {
         $connection = self::getContainer()->get(Connection::class);
 
-        self::assertEquals(1, $connection->fetchOne('SELECT 1'));
+        $queryResult = $connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    1
+                SQL,
+        );
+        self::assertEquals(1, $queryResult);
 
-        $version = $connection->fetchOne('SHOW server_version');
+        $version = $connection->fetchOne(
+            <<<'SQL'
+                SHOW server_version
+                SQL,
+        );
         self::assertIsString($version);
         self::assertStringStartsWith('18.', $version);
     }

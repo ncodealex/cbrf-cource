@@ -57,7 +57,9 @@ final class RetryPolicyTest extends TestCase
         self::assertSame('2026-11-02 12:00:00.000000', $decision->retryAt?->format('Y-m-d H:i:s.u'));
     }
 
-    /** @return iterable<string, array{int, string}> */
+    /**
+     * @return iterable<string, array{int, string}>
+     */
     public static function backoff(): iterable
     {
         yield 'первая попытка' => [1, '2026-11-02 12:00:00.100000'];
@@ -80,7 +82,9 @@ final class RetryPolicyTest extends TestCase
         $this->policy()->decide($this->retryable(), 0);
     }
 
-    /** @return iterable<string, array{int, int, int, int}> */
+    /**
+     * @return iterable<string, array{int, int, int, int}>
+     */
     public static function invalidConfiguration(): iterable
     {
         yield 'нет попыток' => [0, 100, 200, 0];
@@ -110,9 +114,12 @@ final class RetryPolicyTest extends TestCase
     private function retryable(?DatePoint $retryAt = null): RetryableFailure
     {
         return new class($retryAt) extends \RuntimeException implements RetryableFailure {
-            public function __construct(private readonly ?DatePoint $nextAttempt)
-            {
-                parent::__construct('Временная ошибка');
+            public function __construct(
+                private readonly ?DatePoint $nextAttempt,
+            ) {
+                parent::__construct(
+                    'Временная ошибка',
+                );
             }
 
             public function retryAt(): ?DatePoint

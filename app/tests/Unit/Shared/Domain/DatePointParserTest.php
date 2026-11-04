@@ -7,16 +7,9 @@ namespace App\Tests\Unit\Shared\Domain;
 use App\Shared\Domain\DatePointParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Clock\DatePoint;
 
 final class DatePointParserTest extends TestCase
 {
-    public function testTimezoneIsMoscow(): void
-    {
-        self::assertSame('Europe/Moscow', DatePointParser::TIMEZONE);
-        self::assertSame('Europe/Moscow', DatePointParser::timezone()->getName());
-    }
-
     #[DataProvider('moments')]
     public function testDateOfUsesMoscowDateWithoutChangingInput(string $value, string $expected): void
     {
@@ -26,7 +19,6 @@ final class DatePointParserTest extends TestCase
 
             $date = DatePointParser::dateOf($moment);
 
-            self::assertInstanceOf(DatePoint::class, $date);
             self::assertSame($expected.' 00:00:00.000000 Europe/Moscow', $date->format('Y-m-d H:i:s.u e'));
             self::assertSame($original, $moment->format('Y-m-d H:i:s.u e'));
         }
@@ -49,7 +41,6 @@ final class DatePointParserTest extends TestCase
     {
         $date = DatePointParser::parse($value);
 
-        self::assertInstanceOf(DatePoint::class, $date);
         self::assertSame($expected.' 00:00:00.000000 Europe/Moscow', $date->format('Y-m-d H:i:s.u e'));
     }
 

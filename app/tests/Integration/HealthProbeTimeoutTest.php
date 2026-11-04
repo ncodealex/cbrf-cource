@@ -12,7 +12,9 @@ use Symfony\Component\Process\Process;
 
 final class HealthProbeTimeoutTest extends TestCase
 {
-    /** @return iterable<string, array{string}> */
+    /**
+     * @return iterable<string, array{string}>
+     */
     public static function dependencies(): iterable
     {
         yield 'SQL after successful connection' => ['postgres'];

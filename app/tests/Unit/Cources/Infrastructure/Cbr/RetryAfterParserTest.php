@@ -35,7 +35,9 @@ final class RetryAfterParserTest extends TestCase
         );
     }
 
-    /** @return iterable<string, array{string}> */
+    /**
+     * @return iterable<string, array{string}>
+     */
     public static function httpDates(): iterable
     {
         yield 'IMF-fixdate' => ['Wed, 21 Oct 2026 07:28:00 GMT'];
@@ -51,7 +53,9 @@ final class RetryAfterParserTest extends TestCase
         self::assertSame('2026-10-21T07:28:00+00:00', $retryAt?->format(\DATE_ATOM));
     }
 
-    /** @return iterable<string, array{?string}> */
+    /**
+     * @return iterable<string, array{?string}>
+     */
     public static function invalidHeaders(): iterable
     {
         yield 'отсутствует' => [null];

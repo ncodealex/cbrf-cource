@@ -10,7 +10,7 @@ use Symfony\Component\Clock\DatePoint;
 final readonly class RetryAfterParser
 {
     public function __construct(
-        private ClockInterface $clock
+        private ClockInterface $clock,
     ) {
     }
 
@@ -28,7 +28,7 @@ final readonly class RetryAfterParser
                 $seconds = filter_var(
                     ltrim($value, '0') ?: '0',
                     \FILTER_VALIDATE_INT,
-                    ['options' => ['min_range' => 0]]
+                    ['options' => ['min_range' => 0]],
                 );
                 if (false === $seconds || $seconds > 253402300799 - $this->clock->now()->getTimestamp()) {
                     return null;

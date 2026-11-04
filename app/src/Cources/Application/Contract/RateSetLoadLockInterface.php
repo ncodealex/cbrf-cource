@@ -14,10 +14,16 @@ interface RateSetLoadLockInterface
     /**
      * Немедленно захватить эксклюзивную блокировку, без ожидания.
      *
-     * @param callable(RateSetLoadLockGuard): RateSet $operation
+     * Выполнить operation под арендой календарной даты и освободить её также при исключении.
+     * Вернуть результат operation; исключения самой операции передать вызывающему.
+     *
+     * @param callable(RateSetLoadLockGuard): RateSet $operation получение и сохранение набора
      *
      * @throws RateSetLoadBusy
      * @throws RateSetLoadLockFailure
      */
-    public function synchronized(DatePoint $requestedDate, callable $operation): RateSet;
+    public function synchronized(
+        DatePoint $requestedDate,
+        callable $operation,
+    ): RateSet;
 }

@@ -10,6 +10,9 @@ final class MonologConfigurationTest extends TestCase
 {
     public function testDevelopmentKeepsDebugInFilesWithoutFloodingStderr(): void
     {
+        /**
+         * @var array{monolog: array{handlers: array<string, array{level: string}>}, parameters: array<string, string>, 'when@dev': array{parameters: array<string, string>}} $config
+         */
         $config = require \dirname(__DIR__, 4).'/config/packages/monolog.php';
         self::assertSame('%env(APP_LOG_LEVEL)%', $config['monolog']['handlers']['main']['level']);
         self::assertSame('debug', $config['when@dev']['parameters']['env(APP_LOG_LEVEL)']);

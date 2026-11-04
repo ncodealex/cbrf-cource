@@ -20,7 +20,9 @@ final class CbrFixtures
         return $content;
     }
 
-    /** Подставляет UTF-8 фрагмент XML в обёртку с декларацией windows-1251. */
+    /**
+     * Подставляет UTF-8 фрагмент XML в обёртку с декларацией windows-1251.
+     */
     public static function windows1251(string $utf8Xml): string
     {
         $converted = iconv('UTF-8', 'WINDOWS-1251', '<?xml version="1.0" encoding="windows-1251"?>'."\n".$utf8Xml);

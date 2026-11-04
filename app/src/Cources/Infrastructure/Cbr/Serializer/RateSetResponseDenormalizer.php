@@ -9,7 +9,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
-/** XmlEncoder представляет единственный Valute объектом, несколько — списком. */
+/**
+ * XmlEncoder представляет единственный Valute объектом, несколько — списком.
+ */
 final readonly class RateSetResponseDenormalizer implements DenormalizerInterface
 {
     /**
@@ -22,7 +24,9 @@ final readonly class RateSetResponseDenormalizer implements DenormalizerInterfac
         'R01720A' => ['CharCode' => 'UAK', 'NumCode' => '804'],
     ];
 
-    /** @var list<string> */
+    /**
+     * @var list<string>
+     */
     private const array REQUIRED_ITEM_FIELDS = ['@ID', 'CharCode', 'Nominal', 'Value', 'Name'];
 
     public function __construct(
@@ -31,8 +35,15 @@ final readonly class RateSetResponseDenormalizer implements DenormalizerInterfac
     ) {
     }
 
-    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): RateSetResponse
-    {
+    /**
+     * {@inheritdoc}
+     */
+    public function denormalize(
+        mixed $data,
+        string $type,
+        ?string $format = null,
+        array $context = [],
+    ): RateSetResponse {
         if (!\is_array($data)) {
             throw new NotNormalizableValueException('Ответ ЦБ должен содержать дату и котировки');
         }
@@ -81,11 +92,21 @@ final readonly class RateSetResponseDenormalizer implements DenormalizerInterfac
         return $this->normalizer->denormalize($data, RateSetResponse::class, $format, $context);
     }
 
-    public function supportsDenormalization(mixed $data, string $type, ?string $format = null, array $context = []): bool
-    {
+    /**
+     * {@inheritdoc}
+     */
+    public function supportsDenormalization(
+        mixed $data,
+        string $type,
+        ?string $format = null,
+        array $context = [],
+    ): bool {
         return RateSetResponse::class === $type && 'xml' === $format;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getSupportedTypes(?string $format): array
     {
         return [RateSetResponse::class => 'xml' === $format];

@@ -14,7 +14,7 @@ return [
             'password' => '%env(POSTGRES_PASSWORD)%',
             'server_version' => '18',
             'charset' => 'utf8',
-            // Таблицами курсов управляют DBAL и миграции, а не ORM SchemaTool.
+            // Таблицами Cources и Import управляют DBAL и миграции, а не ORM SchemaTool.
             'schema_filter' => '~^(?!(?:rate_sets|rate_request_dates|rate_import_jobs)$)~',
             'profiling_collect_backtrace' => '%kernel.debug%',
             'options' => [
@@ -31,7 +31,7 @@ return [
             'auto_mapping' => true,
             // Маппинг сущностей добавляет каждый бизнес-модуль, например:
             // 'Billing' => ['type' => 'attribute', 'is_bundle' => false,
-            //     'dir' => '%kernel.project_dir%/src/Modules/Billing/Domain', 'prefix' => 'App\Modules\Billing\Domain'],
+            //     'dir' => '%kernel.project_dir%/src/Billing/Domain', 'prefix' => 'App\Billing\Domain'],
             'mappings' => [],
         ],
     ],

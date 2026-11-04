@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Cources\Domain;
 
+use App\Cources\Domain\Exception\ExchangeRate\RateNotFoundForDate;
 use App\Cources\Domain\ValueObject\CurrencyCode;
 use PHPUnit\Framework\TestCase;
 
@@ -16,7 +17,7 @@ final class RateSetTest extends TestCase
         self::assertSame(['CNY', 'EUR', 'IDR', 'INR', 'USD'], array_keys($set->items));
         self::assertSame('R01270', $set->get(CurrencyCode::fromString('inr'))->sourceId);
         self::assertSame('2026-10-24', $set->date());
-        $this->expectException(\App\Cources\Domain\Exception\ExchangeRate\RateNotFoundForDate::class);
+        $this->expectException(RateNotFoundForDate::class);
         $set->get(CurrencyCode::fromString('GBP'));
     }
 

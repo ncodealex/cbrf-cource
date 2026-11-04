@@ -23,9 +23,13 @@ final readonly class RetryPolicy
         }
     }
 
-    /** attempt — номер завершившегося вызова, начиная с единицы. Политика не резервирует ресурсы. */
-    public function decide(\Throwable $failure, int $attempt): RetryDecision
-    {
+    /**
+     * attempt — номер завершившегося вызова, начиная с единицы. Политика не резервирует ресурсы.
+     */
+    public function decide(
+        \Throwable $failure,
+        int $attempt,
+    ): RetryDecision {
         if ($attempt < 1) {
             throw new \InvalidArgumentException('Номер попытки должен быть положительным.');
         }

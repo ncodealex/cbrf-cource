@@ -32,7 +32,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final class CbrRateSetGatewayTest extends TestCase
 {
-    /** @return iterable<string, array{string, class-string<\Throwable>}> */
+    /**
+     * @return iterable<string, array{string, class-string<\Throwable>}>
+     */
     public static function invalidBodies(): iterable
     {
         yield 'пусто' => ['', CbrInvalidResponse::class];
@@ -59,7 +61,7 @@ final class CbrRateSetGatewayTest extends TestCase
             '<ValCurs Date="24.10.2026">'.str_replace(
                 '<Value>81,4500</Value>',
                 '<Value><Amount>81,4500</Amount></Value>',
-                $quote
+                $quote,
             ).'</ValCurs>',
             CbrSerialization::class,
         ];
@@ -72,7 +74,7 @@ final class CbrRateSetGatewayTest extends TestCase
             '<ValCurs Date="24.10.2026">'.str_replace(
                 '<Nominal>1</Nominal>',
                 '<Nominal>1</Nominal><Nominal>2</Nominal>',
-                $quote
+                $quote,
             ).'</ValCurs>',
             CbrSerialization::class,
         ];
@@ -80,13 +82,15 @@ final class CbrRateSetGatewayTest extends TestCase
             '<ValCurs Date="24.10.2026">'.str_replace(
                 '<Nominal>1</Nominal>',
                 '<Nominal>999999999999999999999999</Nominal>',
-                $quote
+                $quote,
             ).'</ValCurs>',
             CbrInvalidResponse::class,
         ];
     }
 
-    /** @return iterable<string, array{int, class-string<\Throwable>}> */
+    /**
+     * @return iterable<string, array{int, class-string<\Throwable>}>
+     */
     public static function statuses(): iterable
     {
         yield '429' => [429, CbrRateLimited::class];
@@ -134,7 +138,7 @@ final class CbrRateSetGatewayTest extends TestCase
             CbrSerializer::create(),
             new CbrRateSetResponseMapper(),
             $rateLimiter,
-            new RetryAfterParser($clock)
+            new RetryAfterParser($clock),
         );
     }
 
@@ -188,6 +192,9 @@ final class CbrRateSetGatewayTest extends TestCase
         return $this->createGateway(new MockHttpClient($response, 'https://www.cbr.ru'));
     }
 
+    /**
+     * @param class-string<\Throwable> $exception
+     */
     #[DataProvider('invalidBodies')]
     public function testRejectsInvalidResponse(string $body, string $exception): void
     {
@@ -195,7 +202,9 @@ final class CbrRateSetGatewayTest extends TestCase
         $this->gateway(new MockResponse($body))->fetchLatest();
     }
 
-    /** @param class-string<\Throwable> $exception */
+    /**
+     * @param class-string<\Throwable> $exception
+     */
     #[DataProvider('statuses')]
     public function testHttpError(int $status, string $exception): void
     {

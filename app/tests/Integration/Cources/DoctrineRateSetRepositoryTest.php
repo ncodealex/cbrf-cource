@@ -9,6 +9,7 @@ use App\Cources\Application\Exception\RateSetNotFound;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
 use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\Process\Process;
@@ -21,13 +22,40 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
         $date = DatePointParser::parse('2026-10-26');
         $set = RateSets::saturday();
         $repository->save($date, $set);
-        $createdAt = $this->connection->fetchOne('SELECT created_at FROM rate_sets');
+        $createdAt = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    created_at
+                FROM rate_sets
+                SQL,
+        );
         $repository->save($date, $set);
         $repository->save(DatePointParser::parse('2026-10-25'), $set);
         self::assertSame($set->contentHash(), $repository->get($date)->contentHash());
-        self::assertSame(1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
-        self::assertSame(2, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
-        self::assertSame($createdAt, $this->connection->fetchOne('SELECT created_at FROM rate_sets'));
+        $rateSetCount = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    COUNT(*)
+                FROM rate_sets
+                SQL,
+        );
+        self::assertSame(1, $rateSetCount);
+        $confirmedDateCount = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    COUNT(*)
+                FROM rate_request_dates
+                SQL,
+        );
+        self::assertSame(2, $confirmedDateCount);
+        $storedCreatedAt = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    created_at
+                FROM rate_sets
+                SQL,
+        );
+        self::assertSame($createdAt, $storedCreatedAt);
         self::assertSame('81.4500', (string) $repository->get($date)->items['USD']->value);
     }
 
@@ -48,7 +76,14 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
             $repository->save($date, RateSets::saturday());
             self::fail('Ожидался конфликт календарной даты');
         } catch (RateSetConflict) {
-            self::assertSame(1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
+            $rateSetCount = $this->connection->fetchOne(
+                <<<'SQL'
+                    SELECT
+                        COUNT(*)
+                    FROM rate_sets
+                    SQL,
+            );
+            self::assertSame(1, $rateSetCount);
             self::assertSame('2026-10-23', $repository->get($date)->date());
             self::assertFalse($this->connection->isTransactionActive());
         }
@@ -64,8 +99,14 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
 
     public function testForeignKeyRejectsMissingSet(): void
     {
-        $this->expectException(\Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException::class);
-        $this->connection->executeStatement("INSERT INTO rate_request_dates VALUES ('2026-10-26', '2026-10-24')");
+        $this->expectException(ForeignKeyConstraintViolationException::class);
+        $this->connection->executeStatement(
+            <<<'SQL'
+                INSERT INTO rate_request_dates
+                VALUES
+                    ('2026-10-26', '2026-10-24')
+                SQL,
+        );
     }
 
     public function testLatestCanBeSavedForItsEffectiveDate(): void
@@ -90,8 +131,22 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
         );
         $repository->delete($second);
 
-        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
-        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
+        $confirmedDateCount = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    COUNT(*)
+                FROM rate_request_dates
+                SQL,
+        );
+        self::assertSame(0, $confirmedDateCount);
+        $rateSetCount = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    COUNT(*)
+                FROM rate_sets
+                SQL,
+        );
+        self::assertSame(0, $rateSetCount);
     }
 
     public function testDeleteRemovesOrphanedSet(): void
@@ -102,8 +157,22 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
 
         $repository->delete($date);
 
-        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
-        self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
+        $confirmedDateCount = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    COUNT(*)
+                FROM rate_request_dates
+                SQL,
+        );
+        self::assertSame(0, $confirmedDateCount);
+        $rateSetCount = $this->connection->fetchOne(
+            <<<'SQL'
+                SELECT
+                    COUNT(*)
+                FROM rate_sets
+                SQL,
+        );
+        self::assertSame(0, $rateSetCount);
     }
 
     /**
@@ -138,9 +207,20 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
             $deadline = microtime(true) + 8;
             $blocked = false;
             do {
-                $this->connection->executeStatement('SELECT pg_stat_clear_snapshot()');
+                $this->connection->executeStatement(
+                    <<<'SQL'
+                        SELECT
+                            pg_stat_clear_snapshot()
+                        SQL,
+                );
                 $count = $this->connection->fetchOne(
-                    "SELECT COUNT(*) FROM pg_stat_activity WHERE application_name = :name AND wait_event_type = 'Lock'",
+                    <<<'SQL'
+                        SELECT
+                            COUNT(*)
+                        FROM pg_stat_activity
+                        WHERE application_name = :name
+                            AND wait_event_type = 'Lock'
+                        SQL,
                     ['name' => $this->schema],
                 );
                 self::assertIsInt($count);
@@ -154,8 +234,22 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
             $this->connection->commit();
             $process->wait();
             self::assertSame($conflict ? 2 : 0, $process->getExitCode(), $process->getErrorOutput());
-            self::assertSame(1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
-            self::assertSame(!$conflict && '2026-10-27' === $requested ? 2 : 1, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_request_dates'));
+            $rateSetCount = $this->connection->fetchOne(
+                <<<'SQL'
+                    SELECT
+                        COUNT(*)
+                    FROM rate_sets
+                    SQL,
+            );
+            self::assertSame(1, $rateSetCount);
+            $confirmedDateCount = $this->connection->fetchOne(
+                <<<'SQL'
+                    SELECT
+                        COUNT(*)
+                    FROM rate_request_dates
+                    SQL,
+            );
+            self::assertSame(!$conflict && '2026-10-27' === $requested ? 2 : 1, $confirmedDateCount);
             self::assertSame(RateSets::saturday()->contentHash(), $repository->get(DatePointParser::parse('2026-10-26'))->contentHash());
         } finally {
             if ($this->connection->isTransactionActive()) {
