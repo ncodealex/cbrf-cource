@@ -31,12 +31,6 @@ use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Throwable;
-use function count;
-use function strlen;
-use const DATE_ATOM;
-use const LIBXML_NOBLANKS;
-use const LIBXML_NONET;
 
 #[AsAlias(ExternalRateSetGatewayInterface::class)]
 final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterface
@@ -79,8 +73,8 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         $decision = $this->rateLimiter->acquire();
         if (!$decision->accepted) {
             $this->logger->notice('Достигнут глобальный лимит обращений к ЦБ', [
-                'requested_date'  => $requestedDate?->format(DateFormatInterface::ISO),
-                'retry_at'        => $decision->retryAt->format(DATE_ATOM),
+                'requested_date' => $requestedDate?->format(DateFormatInterface::ISO),
+                'retry_at' => $decision->retryAt->format(\DATE_ATOM),
                 'exception_class' => CbrRequestRateLimitExceeded::class,
             ]);
             throw new CbrRequestRateLimitExceeded($decision->retryAt);
@@ -89,11 +83,11 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
             return $this->do($query, $requestedDate);
         } catch (CbrGatewayException $e) {
             $this->logger->warning('Ошибка получения официального набора курсов ЦБ', [
-                'requested_date'  => $requestedDate?->format(DateFormatInterface::ISO),
-                'http_status'     => $e->httpStatus ?? null,
-                'retry_at'        => $e instanceof RetryableFailure ? $e->retryAt()?->format(DATE_ATOM) : null,
+                'requested_date' => $requestedDate?->format(DateFormatInterface::ISO),
+                'http_status' => $e->httpStatus ?? null,
+                'retry_at' => $e instanceof RetryableFailure ? $e->retryAt()?->format(\DATE_ATOM) : null,
                 'exception_class' => $e::class,
-                'error'           => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
             throw $e;
         }
@@ -111,33 +105,32 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         ?DatePoint $requestedDate,
     ): RateSet {
         $requestId = IncidentId::create();
-        $start     = hrtime(true);
-        $context   = [
-            'request_id'     => $requestId,
-            'method'         => 'GET',
-            'endpoint'       => '/scripts/XML_daily.asp',
+        $start = hrtime(true);
+        $context = [
+            'request_id' => $requestId,
+            'method' => 'GET',
+            'endpoint' => '/scripts/XML_daily.asp',
             'requested_date' => $requestedDate?->format(DateFormatInterface::ISO),
         ];
         $this->logHttp('info', 'cbr.request', $context);
-        $body   = null;
+        $body = null;
         $status = null;
         try {
             try {
                 $response = $this->client->request('GET', '/scripts/XML_daily.asp', ['query' => $query]);
-                $status   = $response->getStatusCode();
-                $body     = $response->getContent(false);
+                $status = $response->getStatusCode();
+                $body = $response->getContent(false);
                 if (429 === $status || 503 === $status) {
                     $retryAfter = $response->getHeaders(false)['retry-after'] ?? [];
-                    $retryAt    = $this->retryAfterParser->parse(1 === count($retryAfter) ? $retryAfter[0] : null);
+                    $retryAt = $this->retryAfterParser->parse(1 === \count($retryAfter) ? $retryAfter[0] : null);
                     if (429 === $status) {
-                        throw new CbrRateLimited('Банк России ограничил частоту запросов', $status,
-                            nextAttempt: $retryAt);
+                        throw new CbrRateLimited('Банк России ограничил частоту запросов', $status, nextAttempt: $retryAt);
                     }
                     throw new CbrUnavailable('Банк России вернул HTTP 503', $status, nextAttempt: $retryAt);
                 }
                 if (200 !== $status) {
                     if ($status >= 500 && $status <= 599) {
-                        throw new CbrUnavailable('Банк России вернул HTTP ' . $status, $status);
+                        throw new CbrUnavailable('Банк России вернул HTTP '.$status, $status);
                     }
                     throw new CbrHttpFailure($status);
                 }
@@ -145,12 +138,12 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
                 throw new CbrUnavailable('Не удалось получить курсы Банка России', previous: $e);
             }
             $rateSet = $this->parse($body);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             $this->logHttp('error', 'cbr.failure', [
                 ...$context,
                 ...$this->responseMetadata($body, $status, $start),
                 'exception_class' => $e::class,
-                'retryAt'         => $e instanceof RetryableFailure ? $e->retryAt()?->format(DATE_ATOM) : null,
+                'retryAt' => $e instanceof RetryableFailure ? $e->retryAt()?->format(\DATE_ATOM) : null,
             ]);
             throw $e;
         }
@@ -175,7 +168,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
     ): void {
         try {
             $this->httpLogger?->log($level, $event, $context);
-        } catch (Throwable) {
+        } catch (\Throwable) {
         }
     }
 
@@ -187,7 +180,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         try {
             $response = $this->serializer->deserialize($body, RateSetResponse::class, 'xml', [
                 XmlEncoder::TYPE_CAST_ATTRIBUTES => false,
-                XmlEncoder::LOAD_OPTIONS         => LIBXML_NONET | LIBXML_NOBLANKS,
+                XmlEncoder::LOAD_OPTIONS => \LIBXML_NONET | \LIBXML_NOBLANKS,
             ]);
         } catch (SerializerException $e) {
             throw new CbrSerialization('Ошибка сериализации ответа от ЦБ РФ', 0, $e);
@@ -207,9 +200,9 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         int $start,
     ): array {
         $metadata = [
-            'http_status'    => $status,
-            'duration_ms'    => (hrtime(true) - $start) / 1000000,
-            'response_bytes' => null === $body ? 0 : strlen($body),
+            'http_status' => $status,
+            'duration_ms' => (hrtime(true) - $start) / 1000000,
+            'response_bytes' => null === $body ? 0 : \strlen($body),
         ];
         if (null !== $body) {
             $metadata['sha256'] = hash('sha256', $body);
@@ -220,7 +213,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
                      * JSON требует UTF-8, поэтому оригинальные байты сохраняются
                      * без потерь в отдельном поле.
                      */
-                    $metadata['xml']        = @iconv('Windows-1251', 'UTF-8', $body) ?: $body;
+                    $metadata['xml'] = @iconv('Windows-1251', 'UTF-8', $body) ?: $body;
                     $metadata['xml_base64'] = base64_encode($body);
                 }
             }

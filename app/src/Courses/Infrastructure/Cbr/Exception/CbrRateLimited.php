@@ -6,14 +6,13 @@ namespace App\Courses\Infrastructure\Cbr\Exception;
 
 use App\Support\Retry\Application\RetryableFailure;
 use Symfony\Component\Clock\DatePoint;
-use Throwable;
 
 final class CbrRateLimited extends CbrGatewayException implements RetryableFailure
 {
     public function __construct(
         string $message,
         public readonly ?int $httpStatus = null,
-        ?Throwable $previous = null,
+        ?\Throwable $previous = null,
         private readonly ?DatePoint $nextAttempt = null,
     ) {
         parent::__construct(

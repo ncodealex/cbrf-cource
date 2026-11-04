@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Courses\Domain\Exception\ExchangeRate;
 
-use function sprintf;
-
 final class RateNotFoundForDate extends ExchangeRateException
 {
     public function __construct(
@@ -13,7 +11,7 @@ final class RateNotFoundForDate extends ExchangeRateException
         public readonly string $effectiveDate,
     ) {
         parent::__construct(
-            sprintf('Не найден установленный курс %s в наборе от %s', $currency, $effectiveDate),
+            \sprintf('Не найден установленный курс %s в наборе от %s', $currency, $effectiveDate),
         );
     }
 }

@@ -28,9 +28,9 @@ final readonly class RetryingGetExchangeRate
     public function __invoke(GetExchangeRateQuery $query): GetExchangeRateResult
     {
         $deadline = DatePoint::createFromInterface($this->clock->now())
-            ->modify('+' . self::WAIT_BUDGET_SECONDS . ' seconds');
+            ->modify('+'.self::WAIT_BUDGET_SECONDS.' seconds');
 
-        for ($attempt = 1; ; ++$attempt) {
+        for ($attempt = 1;; ++$attempt) {
             try {
                 return ($this->handler)($query);
             } catch (RetryableFailure $failure) {
@@ -41,7 +41,7 @@ final readonly class RetryingGetExchangeRate
                     throw $failure;
                 }
 
-                $delay = max(0.0, (float)$decision->retryAt->format('U.u') - (float)$now->format('U.u'));
+                $delay = max(0.0, (float) $decision->retryAt->format('U.u') - (float) $now->format('U.u'));
                 if ($delay > 0) {
                     $this->clock->sleep($delay);
                 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Courses\Application\Contract;
 
 use Symfony\Component\Clock\DatePoint;
-use Throwable;
 
 interface RateSetRefreshStorageInterface
 {
@@ -14,7 +13,7 @@ interface RateSetRefreshStorageInterface
      * Кеш и повторное получение котировок не входят в эту операцию PostgreSQL.
      * При отсутствии relatedDates сбрасывается задание requestDate; новые задания не создаются.
      *
-     * @throws Throwable при отказе хранения; сброс заданий и удаление откатываются вместе
+     * @throws \Throwable при отказе хранения; сброс заданий и удаление откатываются вместе
      */
     public function invalidate(
         DatePoint $requestDate,

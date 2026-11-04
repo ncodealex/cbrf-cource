@@ -14,7 +14,7 @@ final class CbrHttpFailure extends CbrGatewayException implements RateImportPerm
         public readonly int $httpStatus,
     ) {
         parent::__construct(
-            'Банк России отклонил запрос: HTTP ' . $httpStatus,
+            'Банк России отклонил запрос: HTTP '.$httpStatus,
         );
     }
 }

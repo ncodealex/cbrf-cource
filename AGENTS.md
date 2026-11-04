@@ -19,7 +19,7 @@
 
 ```text
 app/src/
-├── Cources/                       # бизнес-модуль курсов; сохранять это написание
+├── Courses/                       # бизнес-модуль курсов; сохранять это написание
 │   ├── Domain/                    # модели, VO, расчёты, доменные ошибки
 │   ├── Application/
 │   │   ├── UseCase/<Scenario>/     # прикладной сценарий и его вход/результат
@@ -65,7 +65,7 @@ app/src/
 - Для всех модулей используй название `Endpoints`, включая Support. Новые каталоги `Presentation` не создавать.
 - Точка входа разбирает и проверяет транспортные параметры, формирует вход сценария, вызывает UseCase, преобразует
   результат и ошибки в ответ/exit code.
-- Форматирование относится к Endpoints: пример — `Cources/Endpoints/Console/GetExchangeRate/Response/JsonResponse`.
+- Форматирование относится к Endpoints: пример — `Courses/Endpoints/Console/GetExchangeRate/Response/JsonResponse`.
   Application Result не должен импортировать классы Endpoints.
 - Не обращаться из Endpoints напрямую к БД, Redis или внешнему API. Для новых зависимостей на ошибки предпочитай
   контракт уровня Application/Domain, а не конкретной инфраструктуры.
@@ -82,13 +82,13 @@ app/src/
 
 - Support содержит самостоятельные технические возможности с Application-контрактами и Infrastructure-реализациями.
   Domain и Endpoints добавляются по необходимости, пустые слои не создавать.
-- Бизнес-домен Cources не зависит от Support. Прикладной/инфраструктурный код использует публичные Application-контракты
-  Support, а не его реализации. Support не должен знать конкретные реализации Cources.
-- Shared не зависит от Cources, Import или Support. Shared/Contracts содержит только согласованные межмодульные API и
+- Бизнес-домен Courses не зависит от Support. Прикладной/инфраструктурный код использует публичные Application-контракты
+  Support, а не его реализации. Support не должен знать конкретные реализации Courses.
+- Shared не зависит от Courses, Import или Support. Shared/Contracts содержит только согласованные межмодульные API и
   нейтральные ошибки; внутренние контракты хранения остаются в своих модулях.
 - Не создавать каталоги `Utils`, `Helpers`, `Common`: используй конкретные роли `Parser`, `Mapper`, `Factory`, `Policy`,
   `Calculator` в модуле-владельце.
-- Клиент ЦБ принадлежит `Cources/Infrastructure/Cbr`. Не переносить его в Support или отдельный Integrations только по
+- Клиент ЦБ принадлежит `Courses/Infrastructure/Cbr`. Не переносить его в Support или отдельный Integrations только по
   аналогии с другим проектом.
 
 ### Зависимости слоёв
@@ -103,7 +103,7 @@ Domain. Domain не знает об Application, Infrastructure или Endpoints
 | Infrastructure | Domain, Application, Shared, Application-контракты Support, внешние библиотеки                                              |
 | Endpoints      | Application, Domain, общие типы и транспортные API Symfony; без конкретных Infrastructure-реализаций                        |
 
-Точные автоматические ограничения — в `app/deptrac.yaml`. Deptrac отдельно контролирует Cources и Import, включая четыре
+Точные автоматические ограничения — в `app/deptrac.yaml`. Deptrac отдельно контролирует Courses и Import, включая четыре
 слоя каждого модуля и Shared.Contracts. Не расширяй разрешения Vendor и baseline ради обхода нарушения.
 
 ## Правила реализации
@@ -113,7 +113,7 @@ Domain. Domain не знает об Application, Infrastructure или Endpoints
   публичные конструкторы и свойства.
 - Инварианты и расчёты — в Domain. Документируй смысл, ограничения и побочные эффекты нетривиальных доменных операций,
   не пересказывай сигнатуры.
-- Контракты курсов — в `Cources/Application/Contract`: Repository, Cache, Provider, External Gateway и Date Policy.
+- Контракты курсов — в `Courses/Application/Contract`: Repository, Cache, Provider, External Gateway и Date Policy.
   Репозиторий возвращает доменные объекты, не транспортные Response.
 - Сервисы регистрируются через autowire/autoconfigure. Предпочитай `#[AsAlias]`, `#[Autowire]`, `#[AutowireIterator]` и
   специализированные атрибуты; не дублируй настройки в PHP-конфиге.
@@ -254,18 +254,18 @@ make cs-fix                           # изменяет форматирова�
 
 | Задача                           | Источник                                                    |
 |----------------------------------|-------------------------------------------------------------|
-| Прикладные сценарии              | `app/src/Cources`                                           |
-| Получение из кеша/БД/ЦБ          | `app/src/Cources`                                           |
-| Расчёт курса                     | `app/src/Cources`                                           |
-| Адаптер ЦБ                       | `app/src/Cources`                                           |
-| Хранение и refresh               | `app/src/Cources`, `app/migrations/`                        |
-| Проверки поведения               | `app/tests/Unit/Cources/`, `app/tests/Integration/Cources/` |
+| Прикладные сценарии              | `app/src/Courses`                                           |
+| Получение из кеша/БД/ЦБ          | `app/src/Courses`                                           |
+| Расчёт курса                     | `app/src/Courses`                                           |
+| Адаптер ЦБ                       | `app/src/Courses`                                           |
+| Хранение и refresh               | `app/src/Courses`, `app/migrations/`                        |
+| Проверки поведения               | `app/tests/Unit/Courses/`, `app/tests/Integration/Courses/` |
 | Дополнительное описание хранения | `docs/rateset-storage.md` — сверять с текущим кодом         |
 
 Текущие расхождения не являются образцом для нового кода:
 
 - README и комментарии конфигурации местами описывают старый шаблон с `Modules/` и отдельной Integration. Реальный
-  бизнес-модуль — Cources непосредственно в `app/src/`.
+  бизнес-модуль — Courses непосредственно в `app/src/`.
 - В `services.php` остались exclude-пути GetExchangeRate DTO без сегмента `UseCase`. При отдельной задаче синхронизации
   DI их необходимо актуализировать.
 - Console-команда GetExchangeRate пока импортирует инфраструктурное исключение ЦБ. Не распространять эту зависимость на
@@ -273,13 +273,13 @@ make cs-fix                           # изменяет форматирова�
 - Документация хранения местами описывает более строгую XML-проверку и прежний статус RateLimiter. Проверяй фактические
   Gateway/Serializer и подключение сервисов, прежде чем утверждать наличие защиты.
 
-Не выполнять массовые переносы, переименование Cources или исправление этих расхождений попутно с другой задачей. Не
+Не выполнять массовые переносы, переименование Courses или исправление этих расхождений попутно с другой задачей. Не
 переносить из чужих проектов правила legacy frontend, Bruno, Sync, getter traits или механизмы событий, которых здесь
 нет.
 
 ## Правила модуля Import и межмодульной интеграции
 
-- Import не импортирует PHP-классы Cources; Cources не импортирует PHP-классы Import. Публичная точка взаимодействия —
+- Import не импортирует PHP-классы Courses; Courses не импортирует PHP-классы Import. Публичная точка взаимодействия —
   Shared/Contracts. Domain не использует DI, DBAL, Messenger или Monolog.
 - RateImportStatus — единственный владелец матрицы действий: allows (), assertAllows (), allowedFor (). allowedFor ()
   вычисляется через allows (); отдельные TransitionPolicy запрещены.
@@ -290,7 +290,7 @@ make cs-fix                           # изменяет форматирова�
 - ImportJobRepositoryInterface изменяет задания; ImportJobQueryRepositoryInterface читает снимки, ошибки и прогресс.
   Индивидуальные claim/finish/recover используют короткие транзакции с блокировкой строки и доменными операциями;
   массовые reset/retry остаются bulk SQL. Диспетчер сохраняет advisory lock и FOR UPDATE SKIP LOCKED.
-- RateSetImportGateway реализован в Cources: успешный ensureAvailable подтверждает дату в PostgreSQL и обходит
+- RateSetImportGateway реализован в Courses: успешный ensureAvailable подтверждает дату в PostgreSQL и обходит
   Redis-only результат. Необязательная executionVersion включает ImportExecutionFence: HTTP выполняется вне транзакции,
   сохранение проверяет Processing/version под блокировкой строки Job.
 - ImportJobResetter и хранилище Refresh используют один DBAL Connection и одну транзакцию. Refresh увеличивает версии

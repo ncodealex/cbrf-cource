@@ -9,12 +9,6 @@ use App\Courses\Domain\Entity\RateSet;
 use App\Courses\Domain\ValueObject\CurrencyCode;
 use App\Shared\Domain\DatePointParser;
 use BcMath\Number;
-use InvalidArgumentException;
-use ValueError;
-use function array_key_exists;
-use function is_array;
-use function is_int;
-use function is_string;
 
 final readonly class RateSetMapper
 {
@@ -26,12 +20,12 @@ final readonly class RateSetMapper
         $items = [];
         foreach ($rateSet->items as $item) {
             $items[] = [
-                'code'     => $item->code->value,
+                'code' => $item->code->value,
                 'sourceId' => $item->sourceId,
-                'nominal'  => $item->nominal,
-                'value'    => (string)$item->value,
-                'name'     => $item->name,
-                'numCode'  => $item->numCode,
+                'nominal' => $item->nominal,
+                'value' => (string) $item->value,
+                'name' => $item->name,
+                'numCode' => $item->numCode,
             ];
         }
 
@@ -41,20 +35,20 @@ final readonly class RateSetMapper
     public function fromArray(mixed $data): RateSet
     {
         try {
-            if (!is_array($data) || !isset($data['effectiveDate'], $data['items'])
-                || !is_string($data['effectiveDate']) || !is_array($data['items']) || !array_is_list($data['items'])) {
+            if (!\is_array($data) || !isset($data['effectiveDate'], $data['items'])
+                || !\is_string($data['effectiveDate']) || !\is_array($data['items']) || !array_is_list($data['items'])) {
                 throw new InvalidRateSetPayload('Некорректная структура набора курсов');
             }
-            $date  = DatePointParser::parse($data['effectiveDate']);
+            $date = DatePointParser::parse($data['effectiveDate']);
             $items = [];
             foreach ($data['items'] as $item) {
-                if (!is_array($item)
+                if (!\is_array($item)
                     || !isset($item['code'], $item['nominal'], $item['value'], $item['name'])
-                    || !is_string($item['code']) || !is_int($item['nominal'])
-                    || !is_string($item['value']) || !is_string($item['name'])
-                    || !array_key_exists('sourceId', $item) || !array_key_exists('numCode', $item)
-                    || !(null === $item['sourceId'] || is_string($item['sourceId']))
-                    || !(null === $item['numCode'] || is_string($item['numCode']))
+                    || !\is_string($item['code']) || !\is_int($item['nominal'])
+                    || !\is_string($item['value']) || !\is_string($item['name'])
+                    || !\array_key_exists('sourceId', $item) || !\array_key_exists('numCode', $item)
+                    || !(null === $item['sourceId'] || \is_string($item['sourceId']))
+                    || !(null === $item['numCode'] || \is_string($item['numCode']))
                     || 1 !== preg_match('/^[0-9]+(?:\.[0-9]+)?$/D', $item['value'])
                     || !is_numeric($item['value'])) {
                     throw new InvalidRateSetPayload('Некорректная структура котировки');
@@ -70,8 +64,8 @@ final readonly class RateSetMapper
             }
 
             return new RateSet($date, $items);
-        } catch (InvalidArgumentException|ValueError $e) {
-            throw new InvalidRateSetPayload('Некорректные данные набора курсов: ' . $e->getMessage(), 0, $e);
+        } catch (\InvalidArgumentException|\ValueError $e) {
+            throw new InvalidRateSetPayload('Некорректные данные набора курсов: '.$e->getMessage(), 0, $e);
         }
     }
 }

@@ -11,7 +11,6 @@ use App\Shared\Domain\DatePointParser;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use function sprintf;
 
 #[AsAlias(ExternalRateSetGatewayDatePolicyInterface::class)]
 final class CbrRateSetDatePolicy implements ExternalRateSetGatewayDatePolicyInterface
@@ -39,13 +38,11 @@ final class CbrRateSetDatePolicy implements ExternalRateSetGatewayDatePolicyInte
      */
     public function assertAllowed(DatePoint $date): void
     {
-        $iso       = DatePointParser::dateOf($date)->format(DateFormatInterface::ISO);
+        $iso = DatePointParser::dateOf($date)->format(DateFormatInterface::ISO);
         $todayDate = DatePointParser::dateOf($this->clock->now());
-        $today     = $todayDate->format(DateFormatInterface::ISO);
+        $today = $todayDate->format(DateFormatInterface::ISO);
         if ($iso < $this->minRequestDate->format(DateFormatInterface::ISO) || $iso > $today) {
-            throw new CbrNotSupportRateSetDate(sprintf('Центральный Банк РФ поддерживает котировки курсов в период с %s по текущую дату ( %s ) по Московскому времени. Запрошенная дата %s, часовой пояс: %s',
-                $this->minRequestDate->format(DateFormatInterface::UI), $todayDate->format(DateFormatInterface::UI),
-                $date->format(DateFormatInterface::UI), $date->getTimezone()->getName()));
+            throw new CbrNotSupportRateSetDate(\sprintf('Центральный Банк РФ поддерживает котировки курсов в период с %s по текущую дату ( %s ) по Московскому времени. Запрошенная дата %s, часовой пояс: %s', $this->minRequestDate->format(DateFormatInterface::UI), $todayDate->format(DateFormatInterface::UI), $date->format(DateFormatInterface::UI), $date->getTimezone()->getName()));
         }
     }
 }

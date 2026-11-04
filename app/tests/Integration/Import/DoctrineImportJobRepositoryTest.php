@@ -13,13 +13,11 @@ use App\Import\Domain\ValueObject\RatesImportPeriod;
 use App\Import\Infrastructure\Persistence\DoctrineImportJobRepository;
 use App\Shared\Contracts\Import\StaleImportExecution;
 use App\Shared\Domain\DatePointParser;
-use App\Tests\Unit\Cources\Domain\RateSets;
+use App\Tests\Unit\Courses\Domain\RateSets;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception;
-use LogicException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Clock\DatePoint;
-use function sprintf;
 
 /**
  * @phpstan-import-type Params from DriverManager
@@ -42,9 +40,19 @@ final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
     public function testBulkResetMatchesDomain(string $operation, RateImportStatus $status): void
     {
         $date = DatePointParser::parse('2026-01-01');
-        $old  = new DatePoint('2025-12-31 12:00:00 Europe/Moscow');
-        $job  = new ImportJob($date, $status, 7, 3, $old, $old, $old, $old, '12345678-1234-4234-8234-123456789abc',
-            'Ошибка');
+        $old = new DatePoint('2025-12-31 12:00:00 Europe/Moscow');
+        $job = new ImportJob(
+            $date,
+            $status,
+            7,
+            3,
+            $old,
+            $old,
+            $old,
+            $old,
+            '12345678-1234-4234-8234-123456789abc',
+            'Ошибка',
+        );
         $this->jobs->register([$date]);
         $this->connection->executeStatement(
             <<<'SQL'
@@ -62,7 +70,7 @@ final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
             'retry' => $this->jobs->retryErrors('2026-01-01'),
             'repair' => $this->jobs->requeueUnconfirmedDone(new RatesImportPeriod($date, $date)),
             'refresh' => $this->jobs->resetForRefresh($date),
-            default => throw new LogicException('Неизвестная операция.'),
+            default => throw new \LogicException('Неизвестная операция.'),
         };
         $after = new DatePoint();
         match ($operation) {
@@ -90,13 +98,13 @@ final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
         self::assertNotNull($job->availableAt);
         self::assertIsString($row['available_at']);
         $stored = new DatePoint($row['available_at']);
-        self::assertGreaterThanOrEqual((float)$before->format('U.u') - 0.01, (float)$stored->format('U.u'));
-        self::assertLessThanOrEqual((float)$after->format('U.u') + 0.01, (float)$stored->format('U.u'));
+        self::assertGreaterThanOrEqual((float) $before->format('U.u') - 0.01, (float) $stored->format('U.u'));
+        self::assertLessThanOrEqual((float) $after->format('U.u') + 0.01, (float) $stored->format('U.u'));
     }
 
     public function testRefreshResetAndRateSetDeletionRollbackTogether(): void
     {
-        $date  = DatePointParser::parse('2026-10-24');
+        $date = DatePointParser::parse('2026-10-24');
         $rates = new DoctrineRateSetRepository($this->connection, $this->mapper);
         $rates->save($date, RateSets::saturday());
         $this->jobs->register([$date]);
@@ -155,8 +163,14 @@ final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
         self::assertNotNull($claim);
         self::assertSame(1, $claim->version);
         self::assertNull($this->jobs->claim('2026-01-01', 0, 120));
-        self::assertTrue($this->jobs->finish($claim, RateImportAction::Fail, 1, null,
-            '12345678-1234-4234-8234-123456789abc', 'ошибка'));
+        self::assertTrue($this->jobs->finish(
+            $claim,
+            RateImportAction::Fail,
+            1,
+            null,
+            '12345678-1234-4234-8234-123456789abc',
+            'ошибка',
+        ));
         self::assertFalse($this->jobs->finish($claim, RateImportAction::Defer, 1));
         self::assertSame(1, $this->queries->errors(null, 100)->total);
         self::assertSame(1, $this->jobs->retryErrors('2026-01-01'));
@@ -174,16 +188,16 @@ final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
          * @var Params $params
          */
         $params = $this->connection->getParams();
-        $other  = DriverManager::getConnection($params);
+        $other = DriverManager::getConnection($params);
         try {
-            $other->executeStatement(sprintf(
+            $other->executeStatement(\sprintf(
                 <<<'SQL'
                     SET search_path TO %s
                     SQL,
                 $this->schema,
             ));
             $otherJobs = new DoctrineImportJobRepository($other);
-            $messages  = $this->jobs->reserveDispatch(20, 600, 1);
+            $messages = $this->jobs->reserveDispatch(20, 600, 1);
             self::assertCount(1, $messages);
             self::assertSame([], $otherJobs->reserveDispatch(20, 600, 1));
             $claim = $otherJobs->claim($messages[0]->requestedDate, $messages[0]->version, 120);
@@ -199,8 +213,11 @@ final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
             );
             self::assertCount(1, $this->queries->expired(20));
             $snapshot = $this->queries->expired(20)[0];
-            self::assertTrue($otherJobs->recover($this->queries->expired(20)[0], 1,
-                DatePointParser::parse('2026-01-01')));
+            self::assertTrue($otherJobs->recover(
+                $this->queries->expired(20)[0],
+                1,
+                DatePointParser::parse('2026-01-01'),
+            ));
             self::assertFalse($this->jobs->recover($snapshot, 1, null));
             self::assertFalse($this->jobs->finish($claim, RateImportAction::Fail, 1));
         } finally {

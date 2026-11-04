@@ -4,50 +4,50 @@ declare(strict_types=1);
 
 return [
     'parameters' => [
-        'app.logging.default_level'        => 'error',
+        'app.logging.default_level' => 'error',
         'app.logging.default_stderr_level' => 'warning',
     ],
-    'monolog'    => [
+    'monolog' => [
         'channels' => ['deprecation', 'import_dispatcher', 'import_worker', 'cbrf'],
         'handlers' => [
-            'main'   => [
-                'type'        => 'rotating_file',
+            'main' => [
+                'type' => 'rotating_file',
                 'use_locking' => true,
-                'path'        => '%kernel.logs_dir%/main.log',
-                'max_files'   => 14,
-                'level'       => '%env(default:app.logging.default_level:APP_LOG_LEVEL)%',
+                'path' => '%kernel.logs_dir%/main.log',
+                'max_files' => 14,
+                'level' => '%env(default:app.logging.default_level:APP_LOG_LEVEL)%',
             ],
             'errors' => [
-                'type'        => 'rotating_file',
+                'type' => 'rotating_file',
                 'use_locking' => true,
-                'path'        => '%kernel.logs_dir%/error.log',
-                'max_files'   => 30,
-                'level'       => 'error',
+                'path' => '%kernel.logs_dir%/error.log',
+                'max_files' => 30,
+                'level' => 'error',
             ],
-            'cbrf'   => [
-                'type'        => 'rotating_file',
+            'cbrf' => [
+                'type' => 'rotating_file',
                 'use_locking' => true,
-                'path'        => '%kernel.logs_dir%/cbrf.log',
-                'max_files'   => 14,
-                'level'       => 'debug',
-                'channels'    => ['cbrf'],
+                'path' => '%kernel.logs_dir%/cbrf.log',
+                'max_files' => 14,
+                'level' => 'debug',
+                'channels' => ['cbrf'],
             ],
             'stderr' => [
-                'type'  => 'stream',
-                'path'  => 'php://stderr',
+                'type' => 'stream',
+                'path' => 'php://stderr',
                 'level' => '%env(default:app.logging.default_stderr_level:APP_STDERR_LOG_LEVEL)%',
             ],
         ],
     ],
-    'when@dev'   => [
+    'when@dev' => [
         'parameters' => [
-            'app.logging.default_level'        => 'debug',
+            'app.logging.default_level' => 'debug',
             'app.logging.default_stderr_level' => 'warning',
         ],
     ],
-    'when@test'  => [
+    'when@test' => [
         'parameters' => [
-            'app.logging.default_level'        => 'error',
+            'app.logging.default_level' => 'error',
             'app.logging.default_stderr_level' => 'error',
         ],
     ],

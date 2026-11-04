@@ -39,7 +39,7 @@ final readonly class GetExchangeRateResult
         CurrencyPair $pair,
         ExchangeRate $exchangeRate,
     ): self {
-        $item  = $exchangeRate->currentRateItem;
+        $item = $exchangeRate->currentRateItem;
         $scale = ($pair->currency->isRuble() ? $exchangeRate->baseRateItem : $item)->sourceScale()
             ?? ExchangeRateCalculator::INTERNAL_SCALE;
 

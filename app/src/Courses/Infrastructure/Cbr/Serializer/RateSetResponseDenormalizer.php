@@ -8,9 +8,6 @@ use App\Courses\Infrastructure\Cbr\Response\RateSetResponse;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Serializer\Exception\NotNormalizableValueException;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
-use function array_key_exists;
-use function is_array;
-use function is_string;
 
 /**
  * XmlEncoder представляет единственный Valute объектом, несколько — списком.
@@ -47,11 +44,11 @@ final readonly class RateSetResponseDenormalizer implements DenormalizerInterfac
         ?string $format = null,
         array $context = [],
     ): RateSetResponse {
-        if (!is_array($data)) {
+        if (!\is_array($data)) {
             throw new NotNormalizableValueException('Ответ ЦБ должен содержать дату и котировки');
         }
-        if (array_key_exists('Valute', $data)) {
-            if (!is_array($data['Valute'])) {
+        if (\array_key_exists('Valute', $data)) {
+            if (!\is_array($data['Valute'])) {
                 if ('' === $data['Valute'] || null === $data['Valute']) {
                     $data['Valute'] = [];
                 } else {
@@ -62,7 +59,7 @@ final readonly class RateSetResponseDenormalizer implements DenormalizerInterfac
                 $data['Valute'] = [$data['Valute']];
             }
             foreach ($data['Valute'] as &$item) {
-                if (!is_array($item) || !isset($item['@ID']) || !is_string($item['@ID'])) {
+                if (!\is_array($item) || !isset($item['@ID']) || !\is_string($item['@ID'])) {
                     continue;
                 }
                 $legacyCodes = self::LEGACY_CURRENCY_CODES[$item['@ID']] ?? null;
@@ -75,11 +72,11 @@ final readonly class RateSetResponseDenormalizer implements DenormalizerInterfac
             $data['Valute'] = array_values(array_filter(
                 $data['Valute'],
                 static function (mixed $item): bool {
-                    if (!is_array($item)) {
+                    if (!\is_array($item)) {
                         return true;
                     }
                     foreach (self::REQUIRED_ITEM_FIELDS as $field) {
-                        if (!array_key_exists($field, $item)) {
+                        if (!\array_key_exists($field, $item)) {
                             return false;
                         }
                     }

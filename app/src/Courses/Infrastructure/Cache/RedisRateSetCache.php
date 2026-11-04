@@ -11,28 +11,21 @@ use App\Courses\Domain\Entity\RateSet;
 use App\Courses\Infrastructure\Mapping\InvalidRateSetPayload;
 use App\Courses\Infrastructure\Mapping\RateSetMapper;
 use App\Shared\Domain\DateFormatInterface;
-use InvalidArgumentException;
-use JsonException;
-use Redis;
-use RedisException;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use function is_string;
-use const JSON_THROW_ON_ERROR;
-use const JSON_UNESCAPED_UNICODE;
 
 #[AsAlias(RateSetCacheInterface::class)]
 final readonly class RedisRateSetCache implements RateSetCacheInterface
 {
     public function __construct(
-        private Redis $redis,
+        private \Redis $redis,
         private RateSetMapper $mapper,
         #[Autowire('%env(int:default:app.cache.default_ttl:CACHE_DEFAULT_TTL)%')]
         private int $ttl,
     ) {
         if ($ttl <= 0) {
-            throw new InvalidArgumentException('TTL набора курсов должен быть положительным');
+            throw new \InvalidArgumentException('TTL набора курсов должен быть положительным');
         }
     }
 
@@ -47,26 +40,26 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
             if (false === $payload && null !== $this->redis->getLastError()) {
                 throw new RateSetCacheFailure('Redis вернул ошибку чтения набора курсов');
             }
-        } catch (RedisException $e) {
+        } catch (\RedisException $e) {
             throw new RateSetCacheFailure('Не удалось прочитать набор курсов из Redis', 0, $e);
         }
         if (false === $payload) {
-            throw new RateSetNotFound('В кеше нет набора курсов на дату ' . $requestDate->format('Y-m-d'));
+            throw new RateSetNotFound('В кеше нет набора курсов на дату '.$requestDate->format('Y-m-d'));
         }
         try {
-            if (!is_string($payload)) {
+            if (!\is_string($payload)) {
                 throw new InvalidRateSetPayload('Ожидалась JSON-строка набора курсов');
             }
 
-            return $this->mapper->fromArray(json_decode($payload, true, 512, JSON_THROW_ON_ERROR));
-        } catch (JsonException|InvalidRateSetPayload $e) {
+            return $this->mapper->fromArray(json_decode($payload, true, 512, \JSON_THROW_ON_ERROR));
+        } catch (\JsonException|InvalidRateSetPayload $e) {
             throw new RateSetCacheFailure('Повреждён набор курсов в Redis', 0, $e);
         }
     }
 
     private function key(DatePoint $date): string
     {
-        return 'rateset:date:' . $date->format(DateFormatInterface::ISO);
+        return 'rateset:date:'.$date->format(DateFormatInterface::ISO);
     }
 
     /**
@@ -77,11 +70,11 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
         RateSet $set,
     ): void {
         try {
-            $payload = json_encode($this->mapper->toArray($set), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+            $payload = json_encode($this->mapper->toArray($set), \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE);
             if (true !== $this->redis->set($this->key($requestDate), $payload, ['ex' => $this->ttl])) {
                 throw new RateSetCacheFailure('Redis не подтвердил запись набора курсов');
             }
-        } catch (RedisException|JsonException $e) {
+        } catch (\RedisException|\JsonException $e) {
             throw new RateSetCacheFailure('Не удалось записать набор курсов в Redis', 0, $e);
         }
     }
@@ -97,7 +90,7 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
 
         try {
             $this->redis->del(array_map($this->key(...), $requestDates));
-        } catch (RedisException $e) {
+        } catch (\RedisException $e) {
             throw new RateSetCacheFailure('Не удалось удалить набор курсов из кеша', 0, $e);
         }
     }

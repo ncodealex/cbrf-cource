@@ -6,7 +6,6 @@ namespace App\Courses\Application\Contract;
 
 use App\Courses\Application\Exception\GatewayNotSupportRateSetDateInterface;
 use Symfony\Component\Clock\DatePoint;
-use Throwable;
 
 /**
  * Политика возможности расчета котировок (для учета возможностей шлюза).
@@ -23,7 +22,7 @@ interface ExternalRateSetGatewayDatePolicyInterface
     /**
      * Проверить доступность календарной даты без запроса котировок и изменения хранилища.
      *
-     * @throws Throwable&GatewayNotSupportRateSetDateInterface если дата недоступна
+     * @throws \Throwable&GatewayNotSupportRateSetDateInterface если дата недоступна
      */
     public function assertAllowed(DatePoint $date): void;
 }

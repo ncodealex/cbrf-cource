@@ -9,7 +9,6 @@ use App\Courses\Domain\Exception\ExchangeRate\InvalidRateDateOrder;
 use App\Courses\Domain\Exception\ExchangeRate\PreviousRateNotFound;
 use App\Courses\Domain\Exception\ExchangeRate\RateNotFoundForDate;
 use BcMath\Number;
-use function sprintf;
 
 /**
  * Прямые и кросс-курсы по официальным рублёвым котировкам. Промежуточные значения
@@ -31,8 +30,7 @@ final class ExchangeRateCalculator
         CurrencyPair $pair,
     ): ExchangeRate {
         if ($previous->date() >= $current->date()) {
-            throw new InvalidRateDateOrder(sprintf('Предыдущий набор курсов от %s должен предшествовать текущему от %s',
-                $previous->date(), $current->date()));
+            throw new InvalidRateDateOrder(\sprintf('Предыдущий набор курсов от %s должен предшествовать текущему от %s', $previous->date(), $current->date()));
         }
 
         /*

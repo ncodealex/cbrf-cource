@@ -7,10 +7,8 @@ namespace App\Tests\Unit\Support\Retry\Application;
 use App\Courses\Application\Exception\RateSetConflict;
 use App\Support\Retry\Application\RetryableFailure;
 use App\Support\Retry\Application\RetryPolicy;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\Clock\MockClock;
 
@@ -42,7 +40,7 @@ final class RetryPolicyTest extends TestCase
 
     public function testNonRetryableFailureIsDenied(): void
     {
-        $decision = $this->policy()->decide(new RuntimeException('Постоянная ошибка'), 1);
+        $decision = $this->policy()->decide(new \RuntimeException('Постоянная ошибка'), 1);
 
         self::assertFalse($decision->allowed);
         self::assertNull($decision->retryAt);
@@ -71,7 +69,7 @@ final class RetryPolicyTest extends TestCase
 
     private function retryable(?DatePoint $retryAt = null): RetryableFailure
     {
-        return new class($retryAt) extends RuntimeException implements RetryableFailure{
+        return new class($retryAt) extends \RuntimeException implements RetryableFailure {
             public function __construct(
                 private readonly ?DatePoint $nextAttempt,
             ) {
@@ -119,7 +117,7 @@ final class RetryPolicyTest extends TestCase
 
     public function testAttemptMustBePositive(): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->policy()->decide($this->retryable(), 0);
     }
 
@@ -130,7 +128,7 @@ final class RetryPolicyTest extends TestCase
         int $maxDelayMs,
         int $jitterPercent,
     ): void {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
 
         new RetryPolicy($this->clock, $maxAttempts, $initialDelayMs, $maxDelayMs, $jitterPercent);
     }

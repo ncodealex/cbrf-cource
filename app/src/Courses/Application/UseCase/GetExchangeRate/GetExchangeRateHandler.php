@@ -20,7 +20,7 @@ final readonly class GetExchangeRateHandler
     public function __invoke(GetExchangeRateQuery $query): GetExchangeRateResult
     {
         // 1. Получить набор для запрошенной даты и предыдущий набор перед датой действия.
-        $current  = $this->provider->resolve($query->requestedDate);
+        $current = $this->provider->resolve($query->requestedDate);
         $previous = $this->provider->resolve($current->effectiveDate->modify('-1 day'));
 
         // 2. Рассчитать курс пары и изменение относительно предыдущего набора.

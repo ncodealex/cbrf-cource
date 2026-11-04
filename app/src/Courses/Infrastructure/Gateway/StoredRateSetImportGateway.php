@@ -10,12 +10,9 @@ use App\Shared\Contracts\Import\ImportExecutionFence;
 use App\Shared\Contracts\Rates\RateSetImportGateway;
 use App\Shared\Domain\DateFormatInterface;
 use App\Shared\Domain\DatePointParser;
-use Closure;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use UnexpectedValueException;
-use function is_string;
 
 #[AsAlias(RateSetImportGateway::class)]
 final readonly class StoredRateSetImportGateway implements RateSetImportGateway
@@ -37,7 +34,7 @@ final readonly class StoredRateSetImportGateway implements RateSetImportGateway
     ): void {
         $this->resolver->resolve(
             $requestedDate,
-            null === $executionVersion ? null : fn(Closure $write) => $this->fence->write(
+            null === $executionVersion ? null : fn (\Closure $write) => $this->fence->write(
                 $requestedDate,
                 $executionVersion,
                 $write,
@@ -81,8 +78,8 @@ final readonly class StoredRateSetImportGateway implements RateSetImportGateway
         );
 
         return array_map(static function (mixed $date): DatePoint {
-            if (!is_string($date)) {
-                throw new UnexpectedValueException('Некорректная дата PostgreSQL.');
+            if (!\is_string($date)) {
+                throw new \UnexpectedValueException('Некорректная дата PostgreSQL.');
             }
 
             return DatePointParser::parse($date);

@@ -24,15 +24,12 @@ use App\Support\Retry\Application\RetryPolicy;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use ReflectionClass;
-use RuntimeException;
 use Symfony\Component\Clock\MockClock;
-use Throwable;
 
 final class ProcessRateImportHandlerTest extends TestCase
 {
     /**
-     * @return iterable<string, array{Throwable, int, RateImportAction, int}>
+     * @return iterable<string, array{\Throwable, int, RateImportAction, int}>
      */
     public static function failures(): iterable
     {
@@ -50,7 +47,7 @@ final class ProcessRateImportHandlerTest extends TestCase
     {
         self::assertContains(
             RateImportPermanentFailure::class,
-            new ReflectionClass(RateSetConflict::class)->getInterfaceNames(),
+            new \ReflectionClass(RateSetConflict::class)->getInterfaceNames(),
         );
     }
 
@@ -68,10 +65,16 @@ final class ProcessRateImportHandlerTest extends TestCase
 
     private function handler(
         ImportJobRepositoryInterface $repo,
-        RateSetImportGateway $provider
+        RateSetImportGateway $provider,
     ): ProcessRateImportHandler {
-        return new ProcessRateImportHandler($repo, $provider, new RateImportSettings(20, 2, 600, 20, 120, 2, 0),
-            new RetryPolicy(new MockClock(), 5, 1000, 60000, 0), new NullLogger(), new MockClock());
+        return new ProcessRateImportHandler(
+            $repo,
+            $provider,
+            new RateImportSettings(20, 2, 600, 20, 120, 2, 0),
+            new RetryPolicy(new MockClock(), 5, 1000, 60000, 0),
+            new NullLogger(),
+            new MockClock(),
+        );
     }
 
     public function testConfirmedDateCompletesWithoutProvider(): void
@@ -80,11 +83,17 @@ final class ProcessRateImportHandlerTest extends TestCase
             ImportJobRepositoryInterface::class,
             ImportJobQueryRepositoryInterface::class,
         ]);
-        $repo->expects(self::once())->method('claim')->willReturn(new ImportJobExecution(DatePointParser::parse('2026-01-01'),
-            1, 0));
+        $repo->expects(self::once())->method('claim')->willReturn(new ImportJobExecution(
+            DatePointParser::parse('2026-01-01'),
+            1,
+            0,
+        ));
 
-        $repo->expects(self::once())->method('finish')->with(self::anything(), RateImportAction::Complete,
-            0)->willReturn(false);
+        $repo->expects(self::once())->method('finish')->with(
+            self::anything(),
+            RateImportAction::Complete,
+            0,
+        )->willReturn(false);
         $provider = $this->createMock(RateSetImportGateway::class);
         $provider->method('isConfirmed')->willReturn(true);
         $provider->expects(self::never())->method('ensureAvailable');
@@ -94,7 +103,7 @@ final class ProcessRateImportHandlerTest extends TestCase
     public function testConflictIsSavedAsTerminalErrorWithoutRetry(): void
     {
         $failure = new RateSetConflict('Конфликт сохранённых курсов');
-        $repo    = $this->createMockForIntersectionOfInterfaces([
+        $repo = $this->createMockForIntersectionOfInterfaces([
             ImportJobRepositoryInterface::class,
             ImportJobQueryRepositoryInterface::class,
         ]);
@@ -102,14 +111,14 @@ final class ProcessRateImportHandlerTest extends TestCase
             new ImportJobExecution(DatePointParser::parse('2026-01-01'), 7, 2),
         );
         $repo->expects(self::once())->method('finish')->with(
-            self::callback(static fn(ImportJobExecution $claim): bool => 7 === $claim->version),
+            self::callback(static fn (ImportJobExecution $claim): bool => 7 === $claim->version),
             RateImportAction::Fail,
             3,
             null,
-            self::callback(static fn(?string $code): bool => null !== $code && 1 === preg_match(
-                    '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
-                    $code,
-                )),
+            self::callback(static fn (?string $code): bool => null !== $code && 1 === preg_match(
+                '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+                $code,
+            )),
             'Конфликт сохранённых курсов',
         )->willReturn(true);
         $provider = $this->createMock(RateSetImportGateway::class);
@@ -121,8 +130,8 @@ final class ProcessRateImportHandlerTest extends TestCase
 
     public function testFailureToSaveConflictStateEscapes(): void
     {
-        $storageFailure = new RuntimeException('PostgreSQL недоступен');
-        $repo           = $this->createMockForIntersectionOfInterfaces([
+        $storageFailure = new \RuntimeException('PostgreSQL недоступен');
+        $repo = $this->createMockForIntersectionOfInterfaces([
             ImportJobRepositoryInterface::class,
             ImportJobQueryRepositoryInterface::class,
         ]);
@@ -145,14 +154,17 @@ final class ProcessRateImportHandlerTest extends TestCase
     }
 
     #[DataProvider('failures')]
-    public function testFailures(Throwable $failure, int $before, RateImportAction $action, int $after): void
+    public function testFailures(\Throwable $failure, int $before, RateImportAction $action, int $after): void
     {
         $repo = $this->createMockForIntersectionOfInterfaces([
             ImportJobRepositoryInterface::class,
             ImportJobQueryRepositoryInterface::class,
         ]);
-        $repo->expects(self::once())->method('claim')->willReturn(new ImportJobExecution(DatePointParser::parse('2026-01-01'),
-            1, $before));
+        $repo->expects(self::once())->method('claim')->willReturn(new ImportJobExecution(
+            DatePointParser::parse('2026-01-01'),
+            1,
+            $before,
+        ));
 
         $repo->expects(self::once())->method('finish')->with(self::anything(), $action, $after)->willReturn(true);
         $provider = $this->createMock(RateSetImportGateway::class);
@@ -166,12 +178,15 @@ final class ProcessRateImportHandlerTest extends TestCase
             ImportJobRepositoryInterface::class,
             ImportJobQueryRepositoryInterface::class,
         ]);
-        $repo->expects(self::once())->method('claim')->willReturn(new ImportJobExecution(DatePointParser::parse('2026-01-01'),
-            1, 0));
+        $repo->expects(self::once())->method('claim')->willReturn(new ImportJobExecution(
+            DatePointParser::parse('2026-01-01'),
+            1,
+            0,
+        ));
         $repo->expects(self::never())->method('finish');
         $provider = $this->createMock(RateSetImportGateway::class);
-        $provider->expects(self::once())->method('ensureAvailable')->willThrowException(new RuntimeException('DB'));
-        $this->expectException(RuntimeException::class);
+        $provider->expects(self::once())->method('ensureAvailable')->willThrowException(new \RuntimeException('DB'));
+        $this->expectException(\RuntimeException::class);
         $this->handler($repo, $provider)(new ProcessRateImportMessage('2026-01-01', 0));
     }
 }

@@ -19,22 +19,22 @@ deptrac:
             collectors:
                 -   type: directory
                     value: src/Import/Endpoints/.*
-        -   name: Cources.Domain
+        -   name: Courses.Domain
             collectors:
                 -   type: directory
-                    value: src/Cources/Domain/.*
-        -   name: Cources.Application
+                    value: src/Courses/Domain/.*
+        -   name: Courses.Application
             collectors:
                 -   type: directory
-                    value: src/Cources/Application/.*
-        -   name: Cources.Infrastructure
+                    value: src/Courses/Application/.*
+        -   name: Courses.Infrastructure
             collectors:
                 -   type: directory
-                    value: src/Cources/Infrastructure/.*
-        -   name: Cources.Endpoints
+                    value: src/Courses/Infrastructure/.*
+        -   name: Courses.Endpoints
             collectors:
                 -   type: directory
-                    value: src/Cources/Endpoints/.*
+                    value: src/Courses/Endpoints/.*
         -   name: Shared.Contracts
             collectors:
                 -   type: directory
@@ -158,19 +158,10 @@ deptrac:
             - Vendor
             - Import.Domain
             - Import.Application
-        Cources.Domain:
+        Courses.Domain:
             - Shared.Domain
             - Symfony.DatePoint
-        Cources.Application:
-            - Shared.Domain
-            - Symfony.DatePoint
-            - Shared.Contracts
-            - Support.Application
-            - Symfony.ClockInterface
-            - Symfony.DependencyInjectionAttribute
-            - Psr
-            - Cources.Domain
-        Cources.Infrastructure:
+        Courses.Application:
             - Shared.Domain
             - Symfony.DatePoint
             - Shared.Contracts
@@ -178,10 +169,8 @@ deptrac:
             - Symfony.ClockInterface
             - Symfony.DependencyInjectionAttribute
             - Psr
-            - Vendor
-            - Cources.Domain
-            - Cources.Application
-        Cources.Endpoints:
+            - Courses.Domain
+        Courses.Infrastructure:
             - Shared.Domain
             - Symfony.DatePoint
             - Shared.Contracts
@@ -190,8 +179,19 @@ deptrac:
             - Symfony.DependencyInjectionAttribute
             - Psr
             - Vendor
-            - Cources.Domain
-            - Cources.Application
+            - Courses.Domain
+            - Courses.Application
+        Courses.Endpoints:
+            - Shared.Domain
+            - Symfony.DatePoint
+            - Shared.Contracts
+            - Support.Application
+            - Symfony.ClockInterface
+            - Symfony.DependencyInjectionAttribute
+            - Psr
+            - Vendor
+            - Courses.Domain
+            - Courses.Application
         Symfony.DatePoint: ~
         Symfony.ClockInterface: ~
         Symfony.DependencyInjectionAttribute: ~

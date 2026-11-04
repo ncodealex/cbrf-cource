@@ -8,8 +8,6 @@ use App\Courses\Domain\Exception\InvalidRateItem;
 use App\Courses\Domain\ExchangeRateCalculator;
 use App\Courses\Domain\ValueObject\CurrencyCode;
 use BcMath\Number;
-use function sprintf;
-use function strlen;
 
 /**
  * Официальная котировка: стоимость nominal единиц валюты в рублях.
@@ -33,11 +31,10 @@ final readonly class RateItem
             throw new InvalidRateItem('Идентификатор валюты у источника не может быть пустым');
         }
         if ($nominal <= 0) {
-            throw new InvalidRateItem(sprintf('Номинал валюты %s должен быть положительным, получено %d', $code,
-                $nominal));
+            throw new InvalidRateItem(\sprintf('Номинал валюты %s должен быть положительным, получено %d', $code, $nominal));
         }
         if ($value->compare(0) <= 0) {
-            throw new InvalidRateItem(sprintf('Курс валюты %s должен быть положительным, получено %s', $code, $value));
+            throw new InvalidRateItem(\sprintf('Курс валюты %s должен быть положительным, получено %s', $code, $value));
         }
     }
 
@@ -65,11 +62,11 @@ final readonly class RateItem
 
     public function sourceScale(): ?int
     {
-        $nominal = (string)$this->nominal;
+        $nominal = (string) $this->nominal;
         if (1 !== preg_match('/^10*$/', $nominal)) {
             return null;
         }
 
-        return $this->value->scale + strlen($nominal) - 1;
+        return $this->value->scale + \strlen($nominal) - 1;
     }
 }

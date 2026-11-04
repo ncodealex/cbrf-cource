@@ -11,18 +11,13 @@ use App\Import\Application\Message\ProcessRateImportMessage;
 use App\Import\Infrastructure\Persistence\DoctrineImportJobQueryRepository;
 use App\Import\Infrastructure\Persistence\DoctrineImportJobRepository;
 use App\Shared\Domain\DatePointParser;
-use App\Tests\Unit\Cources\Domain\RateSets;
+use App\Tests\Unit\Courses\Domain\RateSets;
 use Doctrine\DBAL\Connection;
-use Redis;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\Messenger\Bridge\Amqp\Transport\AmqpTransport;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Process\Process;
-use function dirname;
-use const PHP_BINARY;
-use const SIGKILL;
-use const SIGTERM;
 
 final class RateImportEndToEndTest extends KernelTestCase
 {
@@ -45,7 +40,7 @@ final class RateImportEndToEndTest extends KernelTestCase
                 ORDER BY requested_date
                 SQL,
         );
-        $dates  = $result->fetchAllKeyValue();
+        $dates = $result->fetchAllKeyValue();
         self::assertCount(15, $dates);
         self::assertSame('2026-10-10', $dates['2026-10-12']);
         self::assertSame('2026-10-17', $dates['2026-10-18']);
@@ -58,7 +53,7 @@ final class RateImportEndToEndTest extends KernelTestCase
 
     private function console(string ...$arguments): Process
     {
-        $process = new Process([PHP_BINARY, 'bin/console', ...$arguments, '--no-interaction'], dirname(__DIR__, 3));
+        $process = new Process([\PHP_BINARY, 'bin/console', ...$arguments, '--no-interaction'], \dirname(__DIR__, 3));
         $process->setTimeout(20);
         $process->mustRun();
 
@@ -67,7 +62,7 @@ final class RateImportEndToEndTest extends KernelTestCase
 
     private function consume(int $limit = 1): void
     {
-        $this->console('messenger:consume', 'rates_import', '--limit=' . $limit, '--time-limit=5');
+        $this->console('messenger:consume', 'rates_import', '--limit='.$limit, '--time-limit=5');
     }
 
     public function testImportDispatchWorkerAndProgress(): void
@@ -76,8 +71,13 @@ final class RateImportEndToEndTest extends KernelTestCase
         $this->console('app:rates:dispatch', '--once');
         $this->consume();
         self::assertSame('done', $this->jobStatus());
-        $progress = $this->console('app:rates:import', '--from=2026-10-24', '--to=2026-10-24', '--progress',
-            '--progress-timeout=2');
+        $progress = $this->console(
+            'app:rates:import',
+            '--from=2026-10-24',
+            '--to=2026-10-24',
+            '--progress',
+            '--progress-timeout=2',
+        );
         self::assertStringContainsString('Подтверждено: 1/1', $progress->getOutput());
         // Дубликат старой версии подтверждается без повторного HTTP.
         $this->transport->send(new Envelope(new ProcessRateImportMessage('2026-10-24', 0)));
@@ -136,7 +136,7 @@ final class RateImportEndToEndTest extends KernelTestCase
 
     public function testRateSetConflictIsAcknowledgedAsTerminalError(): void
     {
-        $repository  = new DoctrineRateSetRepository($this->connection, new RateSetMapper());
+        $repository = new DoctrineRateSetRepository($this->connection, new RateSetMapper());
         $conflicting = RateSets::create(
             '2026-10-24',
             [['USD', 'R01235', 1, '1.0000']],
@@ -166,8 +166,10 @@ final class RateImportEndToEndTest extends KernelTestCase
         );
         self::assertIsString($job['error_text']);
         self::assertStringContainsString('Сохранённый набор курсов отличается', $job['error_text']);
-        self::assertSame($conflicting->contentHash(),
-            $repository->get(DatePointParser::parse('2026-10-27'))->contentHash());
+        self::assertSame(
+            $conflicting->contentHash(),
+            $repository->get(DatePointParser::parse('2026-10-27'))->contentHash(),
+        );
         self::assertFalse(new DoctrineImportJobQueryRepository($this->connection)->isConfirmed('2026-10-24'));
         self::assertSame(0, $this->failedMessageCountFor('2026-10-24'));
 
@@ -244,7 +246,7 @@ final class RateImportEndToEndTest extends KernelTestCase
                 SET dispatched_at = NOW() - INTERVAL '601 seconds'
                 SQL,
         );
-        $process = new Process([PHP_BINARY, 'bin/console', 'app:rates:dispatch', '--watch'], dirname(__DIR__, 3));
+        $process = new Process([\PHP_BINARY, 'bin/console', 'app:rates:dispatch', '--watch'], \dirname(__DIR__, 3));
         $process->setTimeout(10);
         $process->start();
         try {
@@ -253,7 +255,7 @@ final class RateImportEndToEndTest extends KernelTestCase
                 usleep(10000);
             }
             self::assertGreaterThan(0, $this->transport->getMessageCount());
-            $process->signal(SIGTERM);
+            $process->signal(\SIGTERM);
             $process->wait();
             self::assertSame(0, $process->getExitCode());
             $this->consume();
@@ -274,14 +276,14 @@ final class RateImportEndToEndTest extends KernelTestCase
         try {
             for ($i = 0; $i < 2; ++$i) {
                 $worker = new Process([
-                    PHP_BINARY,
+                    \PHP_BINARY,
                     'bin/console',
                     'messenger:consume',
                     'rates_import',
                     '--limit=1',
                     '--time-limit=5',
                     '--no-interaction',
-                ], dirname(__DIR__, 3));
+                ], \dirname(__DIR__, 3));
                 $worker->setTimeout(12);
                 $worker->start();
                 $workers[] = $worker;
@@ -370,7 +372,7 @@ final class RateImportEndToEndTest extends KernelTestCase
         $this->control('delay');
         $worker = $this->startDelayedWorker('2026-10-20');
         try {
-            $worker->signal(SIGKILL);
+            $worker->signal(\SIGKILL);
             $worker->wait();
             $this->connection->executeStatement(
                 <<<'SQL'
@@ -403,17 +405,17 @@ final class RateImportEndToEndTest extends KernelTestCase
 
     private function startDelayedWorker(string $date = '2026-10-24'): Process
     {
-        $this->console('app:rates:import', '--from=' . $date, '--to=' . $date);
+        $this->console('app:rates:import', '--from='.$date, '--to='.$date);
         $this->console('app:rates:dispatch', '--once');
         $worker = new Process([
-            PHP_BINARY,
+            \PHP_BINARY,
             'bin/console',
             'messenger:consume',
             'rates_import',
             '--limit=1',
             '--time-limit=8',
             '--no-interaction',
-        ], dirname(__DIR__, 3));
+        ], \dirname(__DIR__, 3));
         $worker->setTimeout(12);
         $worker->start();
         $deadline = microtime(true) + 6;
@@ -433,9 +435,9 @@ final class RateImportEndToEndTest extends KernelTestCase
         $this->control('delay');
         $worker = $this->startDelayedWorker();
         try {
-            $jobs       = new DoctrineImportJobRepository($this->connection);
+            $jobs = new DoctrineImportJobRepository($this->connection);
             $repository = new DoctrineRateSetRepository($this->connection, new RateSetMapper());
-            $storage    = new DoctrineRateSetRefreshStorage($this->connection, $jobs, $repository);
+            $storage = new DoctrineRateSetRefreshStorage($this->connection, $jobs, $repository);
             $storage->invalidate(DatePointParser::parse('2026-10-24'));
             $worker->wait();
             self::assertSame(0, $worker->getExitCode(), $worker->getErrorOutput());
@@ -475,7 +477,7 @@ final class RateImportEndToEndTest extends KernelTestCase
         );
         try {
             $process = $this->console('messenger:consume', 'rates_import', '--limit=4', '--time-limit=18', '-vv');
-            $failed  = self::getContainer()->get('messenger.transport.failed');
+            $failed = self::getContainer()->get('messenger.transport.failed');
             self::assertInstanceOf(AmqpTransport::class, $failed);
             $found = false;
             foreach ($failed->get() as $envelope) {
@@ -484,8 +486,10 @@ final class RateImportEndToEndTest extends KernelTestCase
                 }
                 $failed->ack($envelope);
             }
-            self::assertTrue($found,
-                'Необработанная ошибка хранения должна попасть в failed transport. ' . $process->getOutput() . $process->getErrorOutput());
+            self::assertTrue(
+                $found,
+                'Необработанная ошибка хранения должна попасть в failed transport. '.$process->getOutput().$process->getErrorOutput(),
+            );
             self::assertSame('waiting', $this->jobStatus());
         } finally {
             $this->connection->executeStatement(
@@ -512,7 +516,7 @@ final class RateImportEndToEndTest extends KernelTestCase
         self::assertNotNull($first);
         $this->transport->close();
         $this->transport->setup();
-        $second   = null;
+        $second = null;
         $deadline = microtime(true) + 3;
         do {
             foreach ($this->transport->get() as $envelope) {
@@ -534,7 +538,7 @@ final class RateImportEndToEndTest extends KernelTestCase
     protected function setUp(): void
     {
         $this->connection = self::getContainer()->get(Connection::class);
-        $transport        = self::getContainer()->get('messenger.transport.rates_import');
+        $transport = self::getContainer()->get('messenger.transport.rates_import');
         self::assertInstanceOf(AmqpTransport::class, $transport);
         $this->transport = $transport;
         $this->transport->setup();
@@ -548,9 +552,9 @@ final class RateImportEndToEndTest extends KernelTestCase
         foreach ($this->transport->get() as $message) {
             $this->transport->ack($message);
         }
-        $redis = self::getContainer()->get(Redis::class);
+        $redis = self::getContainer()->get(\Redis::class);
         for ($day = 12; $day <= 26; ++$day) {
-            $redis->del('rateset:date:2026-10-' . $day);
+            $redis->del('rateset:date:2026-10-'.$day);
         }
         $factory = self::getContainer()->get('limiter.cbr');
         $factory->create('cbr.global')->reset();

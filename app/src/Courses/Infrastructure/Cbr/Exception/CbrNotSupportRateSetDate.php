@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace App\Courses\Infrastructure\Cbr\Exception;
 
 use App\Courses\Application\Exception\GatewayNotSupportRateSetDateInterface;
-use Throwable;
 
 final class CbrNotSupportRateSetDate extends CbrGatewayException implements GatewayNotSupportRateSetDateInterface
 {
     public function __construct(
         string $message,
         public readonly ?int $httpStatus = null,
-        ?Throwable $previous = null,
+        ?\Throwable $previous = null,
     ) {
         parent::__construct(
             $message,

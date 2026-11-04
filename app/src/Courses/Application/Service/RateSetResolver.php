@@ -15,11 +15,9 @@ use App\Courses\Application\Exception\RateSetCacheFailure;
 use App\Courses\Application\Exception\RateSetNotFound;
 use App\Courses\Domain\Entity\RateSet;
 use App\Shared\Domain\DateFormatInterface;
-use Closure;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use Throwable;
 
 #[AsAlias(RateSetProviderInterface::class)]
 final readonly class RateSetResolver implements RateSetProviderInterface
@@ -40,11 +38,11 @@ final readonly class RateSetResolver implements RateSetProviderInterface
      * confirmedOnly обходит Redis: импорт требует сохранённой календарной связи.
      * persist ограждает только запись в БД; внешний запрос выполняется до его вызова.
      *
-     * @param Closure(Closure(): void): void|null $persist транзакционная защита сохранения
+     * @param \Closure(\Closure(): void): void|null $persist транзакционная защита сохранения
      */
     public function resolve(
         DatePoint $requestDate,
-        ?Closure $persist = null,
+        ?\Closure $persist = null,
         bool $confirmedOnly = false,
     ): RateSet {
         $this->assert($requestDate);
@@ -97,11 +95,11 @@ final readonly class RateSetResolver implements RateSetProviderInterface
                             if (null === $persist) {
                                 $this->repository->save($requestDate, $rateSet);
                             } else {
-                                $persist(fn() => $this->repository->save($requestDate, $rateSet));
+                                $persist(fn () => $this->repository->save($requestDate, $rateSet));
                             }
-                        } catch (Throwable $e) {
+                        } catch (\Throwable $e) {
                             $this->logger->error('Не удалось сохранить набор курсов', [
-                                'requested_date'  => $requestDate->format(DateFormatInterface::ISO),
+                                'requested_date' => $requestDate->format(DateFormatInterface::ISO),
                                 'exception_class' => $e::class,
                             ]);
                             throw $e;

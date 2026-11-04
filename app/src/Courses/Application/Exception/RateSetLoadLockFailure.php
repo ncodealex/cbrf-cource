@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace App\Courses\Application\Exception;
 
 use App\Support\Retry\Application\RetryableFailure;
-use RuntimeException;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
-use Throwable;
 
 #[Exclude]
-final class RateSetLoadLockFailure extends RuntimeException implements RetryableFailure
+final class RateSetLoadLockFailure extends \RuntimeException implements RetryableFailure
 {
     public function __construct(
         string $message = 'Не удалось обеспечить блокировку загрузки курсов.',
-        ?Throwable $previous = null,
+        ?\Throwable $previous = null,
     ) {
         parent::__construct(
             $message,

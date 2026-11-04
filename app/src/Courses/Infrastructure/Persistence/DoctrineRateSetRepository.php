@@ -14,10 +14,6 @@ use App\Shared\Domain\DatePointParser;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use UnexpectedValueException;
-use function is_string;
-use const JSON_THROW_ON_ERROR;
-use const JSON_UNESCAPED_UNICODE;
 
 #[AsAlias(RateSetRepositoryInterface::class)]
 final readonly class DoctrineRateSetRepository implements RateSetRepositoryInterface
@@ -43,22 +39,22 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
             ['date' => $requestDate->format(DateFormatInterface::ISO)],
         );
         if (false === $row) {
-            throw new RateSetNotFound('Набор курсов не найден на дату ' . $requestDate->format(DateFormatInterface::ISO));
+            throw new RateSetNotFound('Набор курсов не найден на дату '.$requestDate->format(DateFormatInterface::ISO));
         }
 
         return $this->mapper->fromArray([
             'effectiveDate' => $row['effective_date'],
-            'items'         => $this->decodeRates($row['rates']),
+            'items' => $this->decodeRates($row['rates']),
         ]);
     }
 
     private function decodeRates(mixed $rates): mixed
     {
-        if (!is_string($rates)) {
-            throw new UnexpectedValueException('В PostgreSQL отсутствует корректное JSON-представление котировок');
+        if (!\is_string($rates)) {
+            throw new \UnexpectedValueException('В PostgreSQL отсутствует корректное JSON-представление котировок');
         }
 
-        return json_decode($rates, true, 512, JSON_THROW_ON_ERROR);
+        return json_decode($rates, true, 512, \JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -70,9 +66,9 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
     ): void {
         $requestedDate = $requestDate->format(DateFormatInterface::ISO);
         $effectiveDate = $rateSet->date();
-        $rates         = json_encode(
+        $rates = json_encode(
             $this->mapper->toArray($rateSet)['items'],
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+            \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE,
         );
 
         $this->connection->transactional(function () use ($requestedDate, $effectiveDate, $rates, $rateSet): void {
@@ -84,7 +80,7 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
                     RETURNING effective_date
                     SQL,
                 [
-                    'date'  => $effectiveDate,
+                    'date' => $effectiveDate,
                     'rates' => $rates,
                 ],
             );
@@ -100,10 +96,10 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
 
                 $existing = $this->mapper->fromArray([
                     'effectiveDate' => $effectiveDate,
-                    'items'         => $this->decodeRates($existingRates),
+                    'items' => $this->decodeRates($existingRates),
                 ]);
                 if ($existing->contentHash() !== $rateSet->contentHash()) {
-                    throw new RateSetConflict('Сохранённый набор курсов отличается от полученного на дату ' . $effectiveDate);
+                    throw new RateSetConflict('Сохранённый набор курсов отличается от полученного на дату '.$effectiveDate);
                 }
             }
 
@@ -129,7 +125,7 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
                     ['date' => $requestedDate],
                 );
                 if ($existingDate !== $effectiveDate) {
-                    throw new RateSetConflict('Для календарной даты ' . $requestedDate . ' уже подтверждена другая дата действия курсов');
+                    throw new RateSetConflict('Для календарной даты '.$requestedDate.' уже подтверждена другая дата действия курсов');
                 }
             }
         });
@@ -153,8 +149,8 @@ final readonly class DoctrineRateSetRepository implements RateSetRepositoryInter
 
         return array_map(
             static function (mixed $date): DatePoint {
-                if (!is_string($date)) {
-                    throw new UnexpectedValueException('PostgreSQL вернул некорректную календарную дату');
+                if (!\is_string($date)) {
+                    throw new \UnexpectedValueException('PostgreSQL вернул некорректную календарную дату');
                 }
 
                 return DatePointParser::parse($date);

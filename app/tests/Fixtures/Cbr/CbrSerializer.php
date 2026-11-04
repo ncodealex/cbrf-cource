@@ -32,8 +32,11 @@ final class CbrSerializer
             $phpDoc,
             $reflection,
         ]);
-        $normalizer = new ObjectNormalizer($metadata, new MetadataAwareNameConverter($metadata),
-            propertyTypeExtractor: $types);
+        $normalizer = new ObjectNormalizer(
+            $metadata,
+            new MetadataAwareNameConverter($metadata),
+            propertyTypeExtractor: $types,
+        );
 
         return new Serializer([
             new RateSetResponseDenormalizer($normalizer),

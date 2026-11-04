@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Courses\Domain\ValueObject;
 
 use App\Courses\Domain\Exception\InvalidCurrencyCode;
-use Stringable;
 
 /**
  * Буквенный код валюты ISO 4217. Ввод регистронезависимый, RUR и RUB — российский рубль.
  */
-final readonly class CurrencyCode implements Stringable
+final readonly class CurrencyCode implements \Stringable
 {
     public const string  RUB = 'RUB';
     private const string RUR = 'RUR';

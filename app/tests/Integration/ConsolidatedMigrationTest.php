@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration;
 
-use App\Tests\Integration\Cources\RateSetStorageTestCase;
+use App\Tests\Integration\Courses\RateSetStorageTestCase;
 use Doctrine\DBAL\Schema\Schema;
 use DoctrineMigrations\Version20261101000000;
 use Psr\Log\NullLogger;

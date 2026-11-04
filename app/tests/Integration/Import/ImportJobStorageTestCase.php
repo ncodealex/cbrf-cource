@@ -6,7 +6,7 @@ namespace App\Tests\Integration\Import;
 
 use App\Import\Infrastructure\Persistence\DoctrineImportJobQueryRepository;
 use App\Import\Infrastructure\Persistence\DoctrineImportJobRepository;
-use App\Tests\Integration\Cources\RateSetStorageTestCase;
+use App\Tests\Integration\Courses\RateSetStorageTestCase;
 use Doctrine\DBAL\DriverManager;
 
 /**
@@ -15,6 +15,7 @@ use Doctrine\DBAL\DriverManager;
 abstract class ImportJobStorageTestCase extends RateSetStorageTestCase
 {
     protected DoctrineImportJobRepository $jobs;
+
     protected DoctrineImportJobQueryRepository $queries;
 
     protected function setUp(): void

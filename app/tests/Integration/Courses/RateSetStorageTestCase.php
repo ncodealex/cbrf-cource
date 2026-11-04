@@ -1,0 +1,73 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Integration\Courses;
+
+use App\Courses\Infrastructure\Mapping\RateSetMapper;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\Schema;
+use DoctrineMigrations\Version20261101000000;
+use Psr\Log\NullLogger;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+/**
+ * @phpstan-import-type Params from DriverManager
+ */
+abstract class RateSetStorageTestCase extends KernelTestCase
+{
+    protected Connection $connection;
+
+    protected RateSetMapper $mapper;
+
+    protected string $schema;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->schema = 'rateset_test_'.bin2hex(random_bytes(8));
+        /**
+         * @var Params $params параметры существующего PostgreSQL-подключения
+         */
+        $params = self::getContainer()->get(Connection::class)->getParams();
+        $this->connection = DriverManager::getConnection($params);
+        $this->connection->executeStatement(\sprintf(
+            <<<'SQL'
+                CREATE SCHEMA %s
+                SQL,
+            $this->schema,
+        ));
+        $this->connection->executeStatement(\sprintf(
+            <<<'SQL'
+                SET search_path TO %s
+                SQL,
+            $this->schema,
+        ));
+        require_once \dirname(__DIR__, 3).'/migrations/Version20261101000000.php';
+        $migration = new Version20261101000000($this->connection, new NullLogger());
+        $migration->up(new Schema());
+        foreach ($migration->getSql() as $query) {
+            self::assertSame([], $query->getParameters());
+            self::assertSame([], $query->getTypes());
+            $this->connection->executeStatement($query->getStatement());
+        }
+        $this->mapper = new RateSetMapper();
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        while ($this->connection->isTransactionActive()) {
+            $this->connection->rollBack();
+        }
+        // Удаляется только созданная этим тестом изолированная схема.
+        $this->connection->executeStatement(\sprintf(
+            <<<'SQL'
+                DROP SCHEMA %s CASCADE
+                SQL,
+            $this->schema,
+        ));
+        $this->connection->close();
+    }
+}
