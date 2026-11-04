@@ -10,7 +10,10 @@ use App\Courses\Infrastructure\Cache\RedisRateSetCache;
 use App\Courses\Infrastructure\Mapping\RateSetMapper;
 use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Courses\Domain\RateSets;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Cache\Adapter\RedisAdapter;
+use Symfony\Component\Cache\Exception\InvalidArgumentException as RedisConnectionFailure;
 
 final class RedisRateSetCacheTest extends KernelTestCase
 {
@@ -70,5 +73,40 @@ final class RedisRateSetCacheTest extends KernelTestCase
         $redis = new \Redis();
         $this->expectException(RateSetCacheFailure::class);
         new RedisRateSetCache($redis, new RateSetMapper(), 60)->get(DatePointParser::parse('2026-10-26'));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function cacheOperations(): iterable
+    {
+        yield 'чтение' => ['get'];
+        yield 'запись' => ['put'];
+        yield 'удаление' => ['delete'];
+    }
+
+    #[DataProvider('cacheOperations')]
+    public function testLazyConnectionFailure(string $operation): void
+    {
+        $redis = RedisAdapter::createConnection('redis://redis-unavailable.invalid:6379', [
+            'lazy' => true,
+            'timeout' => 0.1,
+            'read_timeout' => 0.1,
+        ]);
+        self::assertInstanceOf(\Redis::class, $redis);
+        $cache = new RedisRateSetCache($redis, new RateSetMapper(), 60);
+        $date = DatePointParser::parse('2026-10-26');
+
+        try {
+            match ($operation) {
+                'get' => $cache->get($date),
+                'put' => $cache->put($date, RateSets::saturday()),
+                'delete' => $cache->delete($date),
+                default => throw new \LogicException('Неизвестная операция кеша'),
+            };
+            self::fail('Ожидался сбой ленивого подключения Redis');
+        } catch (RateSetCacheFailure $e) {
+            self::assertInstanceOf(RedisConnectionFailure::class, $e->getPrevious());
+        }
     }
 }

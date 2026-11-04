@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 $connectionOptions = [
-    'login' => '%env(RABBITMQ_USER)%',
-    'password' => '%env(RABBITMQ_PASSWORD)%',
+    'login'           => '%env(RABBITMQ_USER)%',
+    'password'        => '%env(RABBITMQ_PASSWORD)%',
     'connect_timeout' => 1.0,
-    'read_timeout' => 1.0,
-    'write_timeout' => 1.0,
-    'rpc_timeout' => 1.0,
+    'read_timeout'    => 1.0,
+    'write_timeout'   => 1.0,
+    'rpc_timeout'     => 1.0,
     'confirm_timeout' => 1.0,
-    'heartbeat' => 15,
+    'heartbeat'       => 60,
 ];
 
 return [
@@ -18,45 +18,45 @@ return [
         // Те же credentials/TLS/таймауты использует readiness probe.
         'app.amqp.connection_options' => $connectionOptions,
     ],
-    'framework' => [
+    'framework'  => [
         'messenger' => [
             'failure_transport' => 'failed',
-            'transports' => [
+            'transports'        => [
                 'rates_import' => [
-                    'dsn' => '%env(MESSENGER_TRANSPORT_DSN)%',
-                    'options' => [
+                    'dsn'            => '%env(MESSENGER_TRANSPORT_DSN)%',
+                    'options'        => [
                         ...$connectionOptions,
                         'exchange' => [
-                            'name' => 'rates_import',
-                            'type' => 'direct',
-                            'flags' => 2,
+                            'name'                        => 'rates_import',
+                            'type'                        => 'direct',
+                            'flags'                       => 2,
                             'default_publish_routing_key' => 'rates_import',
                         ],
-                        'queues' => [
+                        'queues'   => [
                             'rates_import' => [
-                                'flags' => 2,
+                                'flags'        => 2,
                                 'binding_keys' => ['rates_import'],
                             ],
                         ],
                     ],
                     'retry_strategy' => [
                         'max_retries' => 3,
-                        'delay' => 1000,
-                        'multiplier' => 3,
-                        'max_delay' => 60000,
+                        'delay'       => 1000,
+                        'multiplier'  => 3,
+                        'max_delay'   => 60000,
                     ],
                 ],
-                'failed' => [
-                    'dsn' => '%env(MESSENGER_TRANSPORT_DSN)%',
+                'failed'       => [
+                    'dsn'     => '%env(MESSENGER_TRANSPORT_DSN)%',
                     'options' => [
                         ...$connectionOptions,
                         'exchange' => [
-                            'name' => 'failed',
-                            'type' => 'direct',
+                            'name'                        => 'failed',
+                            'type'                        => 'direct',
                             'default_publish_routing_key' => 'failed',
                         ],
                         // Messenger сохраняет routing key исходного AMQP-сообщения при отправке в failure transport.
-                        'queues' => [
+                        'queues'   => [
                             'failed' => [
                                 'binding_keys' => ['failed', 'rates_import'],
                             ],
@@ -64,7 +64,7 @@ return [
                     ],
                 ],
             ],
-            'routing' => [
+            'routing'           => [
                 App\Import\Application\Message\ProcessRateImportMessage::class => 'rates_import',
             ],
         ],

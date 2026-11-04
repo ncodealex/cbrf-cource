@@ -11,6 +11,7 @@ use App\Courses\Domain\Entity\RateSet;
 use App\Courses\Infrastructure\Mapping\InvalidRateSetPayload;
 use App\Courses\Infrastructure\Mapping\RateSetMapper;
 use App\Shared\Domain\DateFormatInterface;
+use Symfony\Component\Cache\Exception\InvalidArgumentException as RedisConnectionFailure;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -40,7 +41,7 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
             if (false === $payload && null !== $this->redis->getLastError()) {
                 throw new RateSetCacheFailure('Redis вернул ошибку чтения набора курсов');
             }
-        } catch (\RedisException $e) {
+        } catch (\RedisException|RedisConnectionFailure $e) {
             throw new RateSetCacheFailure('Не удалось прочитать набор курсов из Redis', 0, $e);
         }
         if (false === $payload) {
@@ -74,7 +75,7 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
             if (true !== $this->redis->set($this->key($requestDate), $payload, ['ex' => $this->ttl])) {
                 throw new RateSetCacheFailure('Redis не подтвердил запись набора курсов');
             }
-        } catch (\RedisException|\JsonException $e) {
+        } catch (\RedisException|RedisConnectionFailure|\JsonException $e) {
             throw new RateSetCacheFailure('Не удалось записать набор курсов в Redis', 0, $e);
         }
     }
@@ -90,7 +91,7 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
 
         try {
             $this->redis->del(array_map($this->key(...), $requestDates));
-        } catch (\RedisException $e) {
+        } catch (\RedisException|RedisConnectionFailure $e) {
             throw new RateSetCacheFailure('Не удалось удалить набор курсов из кеша', 0, $e);
         }
     }
