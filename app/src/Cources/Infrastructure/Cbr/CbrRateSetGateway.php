@@ -51,7 +51,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
     }
 
     /**
-     * @throws RetryableFailure
+     * {@inheritdoc}
      */
     public function fetch(DatePoint $requestDate): RateSet
     {
@@ -138,7 +138,11 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         return $rateSet;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Сформировать безопасные метаданные HTTP-ответа для технического журнала.
+     *
+     * @return array<string, mixed> метаданные без учётных данных клиента
+     */
     private function responseMetadata(?string $body, ?int $status, int $start): array
     {
         $metadata = ['http_status' => $status, 'duration_ms' => (hrtime(true) - $start) / 1000000, 'response_bytes' => null === $body ? 0 : \strlen($body)];
@@ -147,7 +151,10 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
             if ('dev' === $this->environment) {
                 $metadata['xml'] = $body;
                 if (1 !== preg_match('//u', $body)) {
-                    // JSON требует UTF-8; оригинальные байты сохраняются без потерь отдельно.
+                    /*
+                     * JSON требует UTF-8, поэтому оригинальные байты сохраняются
+                     * без потерь в отдельном поле.
+                     */
                     $metadata['xml'] = @iconv('Windows-1251', 'UTF-8', $body) ?: $body;
                     $metadata['xml_base64'] = base64_encode($body);
                 }
@@ -157,12 +164,16 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
         return $metadata;
     }
 
-    /** @param array<string, mixed> $context */
+    /**
+     * Записать событие HTTP-обмена, не меняя результат внешней операции при сбое журнала.
+     *
+     * @param array<string, mixed> $context структурированный контекст события
+     */
     private function logHttp(string $level, string $event, array $context): void
     {
         try {
             $this->httpLogger?->log($level, $event, $context);
-        } catch (\Throwable) { /* Ошибка журнала не изменяет результат внешней операции. */
+        } catch (\Throwable) {
         }
     }
 
@@ -184,7 +195,7 @@ final readonly class CbrRateSetGateway implements ExternalRateSetGatewayInterfac
     }
 
     /**
-     * @throws RetryableFailure
+     * {@inheritdoc}
      */
     public function fetchLatest(): RateSet
     {

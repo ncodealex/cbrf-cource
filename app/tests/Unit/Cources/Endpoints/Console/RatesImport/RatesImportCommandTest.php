@@ -8,6 +8,7 @@ use App\Cources\Application\Contract\ExternalRateSetGatewayDatePolicyInterface;
 use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
 use App\Cources\Application\Exception\GatewayNotSupportRateSetDateInterface;
 use App\Cources\Application\Factory\RatesImportPeriodFactory;
+use App\Cources\Application\Import\RateImportStatistics;
 use App\Cources\Application\Import\RatesImportPeriod;
 use App\Cources\Application\UseCase\RatesImport\RatesImportHandler;
 use App\Cources\Endpoints\Console\RatesImport\RatesImportCommand;
@@ -22,7 +23,9 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 final class RatesImportCommandTest extends TestCase
 {
-    /** @param array<string, string> $options */
+    /**
+     * @param array<string, string> $options
+     */
     #[DataProvider('validPeriods')]
     public function testPassesParsedPeriodToHandler(array $options, string $from, string $to, int $days): void
     {
@@ -34,9 +37,9 @@ final class RatesImportCommandTest extends TestCase
             }))
             ->willReturn([]);
         $repository->expects(self::once())->method('register')->willReturn([]);
-        $repository->expects(self::once())->method('statistics')->willReturn([
-            'waiting' => $days, 'processing' => 0, 'deferred' => 0, 'done' => 0, 'error' => 0,
-        ]);
+        $repository->expects(self::once())->method('statistics')->willReturn(
+            new RateImportStatistics($days, 0, 0, 0, 0),
+        );
         $repository->expects(self::never())->method('delete');
         $tester = $this->tester($repository);
 
@@ -50,7 +53,9 @@ final class RatesImportCommandTest extends TestCase
         self::assertSame('', $tester->getErrorOutput());
     }
 
-    /** @return iterable<string, array{array<string, string>, string, string, int}> */
+    /**
+     * @return iterable<string, array{array<string, string>, string, string, int}>
+     */
     public static function validPeriods(): iterable
     {
         yield 'По умолчанию' => [[], '2026-05-06', '2026-11-01', 180];
@@ -72,9 +77,9 @@ final class RatesImportCommandTest extends TestCase
         ]);
         $inserted = new RatesImportPeriod(DatePointParser::parse('2026-01-21'), DatePointParser::parse('2026-01-30'));
         $repository->expects(self::once())->method('register')->willReturn(iterator_to_array($inserted->dates(), false));
-        $repository->expects(self::once())->method('statistics')->willReturn([
-            'waiting' => 11, 'processing' => 3, 'deferred' => 5, 'done' => 2, 'error' => 9,
-        ]);
+        $repository->expects(self::once())->method('statistics')->willReturn(
+            new RateImportStatistics(11, 3, 5, 2, 9),
+        );
         $tester = $this->tester($repository);
 
         self::assertSame(Command::SUCCESS, $tester->execute([
@@ -120,9 +125,9 @@ final class RatesImportCommandTest extends TestCase
             static fn (RatesImportPeriod $period): bool => '2026-11-02' === $period->to->format(DateFormatInterface::ISO),
         ))->willReturn([]);
         $repository->method('register')->willReturn([]);
-        $repository->method('statistics')->willReturn([
-            'waiting' => 2, 'processing' => 0, 'deferred' => 0, 'done' => 0, 'error' => 0,
-        ]);
+        $repository->method('statistics')->willReturn(
+            new RateImportStatistics(2, 0, 0, 0, 0),
+        );
         $tester = $this->tester($repository);
 
         self::assertSame(Command::SUCCESS, $tester->execute([
@@ -130,7 +135,9 @@ final class RatesImportCommandTest extends TestCase
         ], ['capture_stderr_separately' => true, 'interactive' => false]));
     }
 
-    /** @param array<string, string> $options */
+    /**
+     * @param array<string, string> $options
+     */
     #[DataProvider('invalidInputs')]
     public function testRejectsInvalidInputWithoutCallingRepository(array $options, string $error): void
     {
@@ -141,7 +148,9 @@ final class RatesImportCommandTest extends TestCase
         self::assertSame('', $tester->getDisplay());
     }
 
-    /** @return iterable<string, array{array<string, string>, string}> */
+    /**
+     * @return iterable<string, array{array<string, string>, string}>
+     */
     public static function invalidInputs(): iterable
     {
         foreach (['--from', '--to'] as $option) {
@@ -206,7 +215,9 @@ final class RatesImportCommandTest extends TestCase
         self::assertSame('', $tester->getDisplay());
     }
 
-    /** @return iterable<string, array{string}> */
+    /**
+     * @return iterable<string, array{string}>
+     */
     public static function repositoryFailures(): iterable
     {
         yield 'Чтение подтверждений' => ['confirmedDates'];
@@ -222,7 +233,10 @@ final class RatesImportCommandTest extends TestCase
             $policy = $this->createStub(ExternalRateSetGatewayDatePolicyInterface::class);
             $policy->method('minRequestDate')->willReturn(DatePointParser::parse('1992-07-03'));
         }
-        // В UTC ещё предыдущий день: границы должны определяться по московскому календарю.
+        /*
+         * В UTC ещё предыдущий день, поэтому границы должны определяться
+         * по московскому календарю.
+         */
         $clock = new MockClock('2026-11-01 21:30:00 UTC');
         $endpoint = new RatesImportCommand(
             new RatesImportPeriodFactory($clock, $policy),

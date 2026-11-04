@@ -8,7 +8,6 @@ use App\Cources\Domain\Exception\InvalidRateItem;
 use App\Cources\Domain\ExchangeRateCalculator;
 use App\Cources\Domain\ValueObject\CurrencyCode;
 use BcMath\Number;
-use function sprintf;
 
 /**
  * Официальная котировка: стоимость nominal единиц валюты в рублях.
@@ -32,21 +31,28 @@ final readonly class RateItem
             throw new InvalidRateItem('Идентификатор валюты у источника не может быть пустым');
         }
         if ($nominal <= 0) {
-            throw new InvalidRateItem(sprintf('Номинал валюты %s должен быть положительным, получено %d', $code,
-                $nominal));
+            throw new InvalidRateItem(\sprintf('Номинал валюты %s должен быть положительным, получено %d', $code, $nominal));
         }
         if ($value->compare(0) <= 0) {
-            throw new InvalidRateItem(sprintf('Курс валюты %s должен быть положительным, получено %s', $code, $value));
+            throw new InvalidRateItem(\sprintf('Курс валюты %s должен быть положительным, получено %s', $code, $value));
         }
     }
 
-    /** Условная котировка рубля для расчётов; Банк России не публикует её в наборе. */
+    /**
+     * Создать условную котировку рубля для расчётов.
+     *
+     * Банк России не публикует рубль в наборе котировок.
+     */
     public static function ruble(): self
     {
         return new self(CurrencyCode::rub(), null, 1, new Number('1'), 'Российский рубль', '643');
     }
 
-    /** Стоимость одной единицы в рублях: точно для номинала 10^k, иначе с INTERNAL_SCALE знаками. */
+    /**
+     * Рассчитать стоимость одной единицы в рублях.
+     *
+     * Значение точно для номинала 10^k; в остальных случаях используется INTERNAL_SCALE знаков.
+     */
     public function unit(): Number
     {
         $scale = $this->sourceScale();
@@ -56,11 +62,11 @@ final readonly class RateItem
 
     public function sourceScale(): ?int
     {
-        $nominal = (string)$this->nominal;
+        $nominal = (string) $this->nominal;
         if (1 !== preg_match('/^10*$/', $nominal)) {
             return null;
         }
 
-        return $this->value->scale + strlen($nominal) - 1;
+        return $this->value->scale + \strlen($nominal) - 1;
     }
 }

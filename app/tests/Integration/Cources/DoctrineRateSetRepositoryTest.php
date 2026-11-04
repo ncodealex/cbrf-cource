@@ -6,8 +6,8 @@ namespace App\Tests\Integration\Cources;
 
 use App\Cources\Application\Exception\RateSetConflict;
 use App\Cources\Application\Exception\RateSetNotFound;
-use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
+use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Clock\DatePoint;
@@ -86,7 +86,7 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
 
         self::assertSame(
             ['2026-10-25', '2026-10-26'],
-            array_map(static fn(DatePoint $date): string => $date->format('Y-m-d'), $repository->relatedRequestDates($second)),
+            array_map(static fn (DatePoint $date): string => $date->format('Y-m-d'), $repository->relatedRequestDates($second)),
         );
         $repository->delete($second);
 
@@ -106,7 +106,9 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
         self::assertSame(0, $this->connection->fetchOne('SELECT COUNT(*) FROM rate_sets'));
     }
 
-    /** @return iterable<string, array{string, string, bool}> */
+    /**
+     * @return iterable<string, array{string, string, bool}>
+     */
     public static function concurrentSaves(): iterable
     {
         yield 'одна дата одинаковое содержимое' => ['2026-10-26', 'same', false];
@@ -129,7 +131,10 @@ final class DoctrineRateSetRepositoryTest extends RateSetStorageTestCase
         $process->setTimeout(15);
         $process->start();
         try {
-            // Ждём реального ожидания блокировки уникальности, а не произвольную задержку.
+            /*
+             * Ждём реального ожидания блокировки уникальности,
+             * а не произвольную задержку.
+             */
             $deadline = microtime(true) + 8;
             $blocked = false;
             do {

@@ -6,6 +6,7 @@ namespace App\Tests\Unit\Cources\Import;
 
 use App\Cources\Application\Contract\RateImportJobPublisherInterface;
 use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
+use App\Cources\Application\Import\RateImportProgress;
 use App\Cources\Application\Import\RateImportSettings;
 use App\Cources\Application\Import\RatesImportPeriod;
 use App\Cources\Application\Message\ProcessRateImportMessage;
@@ -34,7 +35,9 @@ final class DispatcherAndProgressTest extends TestCase
     public function testProgressTimeoutDoesNotRepeatUnchangedOutput(): void
     {
         $repo = $this->createMock(RateImportJobRepositoryInterface::class);
-        $repo->expects(self::exactly(3))->method('progress')->willReturn(['confirmed' => 0, 'waiting' => 0, 'processing' => 0, 'deferred' => 1, 'error' => 0, 'inconsistentDone' => 0, 'missing' => 0]);
+        $repo->expects(self::exactly(3))->method('progress')->willReturn(
+            new RateImportProgress(0, 0, 0, 1, 0, 0, 0),
+        );
         $observer = new RateImportProgressObserver(new GetRateImportProgressHandler($repo), new MockClock(), new RateImportSettings(20, 2, 600, 20, 120, 2, 0));
         $date = DatePointParser::parse('2026-01-01');
         $out = new BufferedOutput(decorated: false);
@@ -47,7 +50,9 @@ final class DispatcherAndProgressTest extends TestCase
     public function testProgressAllConfirmed(): void
     {
         $repo = $this->createMock(RateImportJobRepositoryInterface::class);
-        $repo->expects(self::once())->method('progress')->willReturn(['confirmed' => 1, 'waiting' => 0, 'processing' => 0, 'deferred' => 0, 'error' => 0, 'inconsistentDone' => 0, 'missing' => 0]);
+        $repo->expects(self::once())->method('progress')->willReturn(
+            new RateImportProgress(1, 0, 0, 0, 0, 0, 0),
+        );
         $observer = new RateImportProgressObserver(new GetRateImportProgressHandler($repo), new MockClock(), new RateImportSettings(20, 2, 600, 20, 120, 2, 0));
         $date = DatePointParser::parse('2026-01-01');
         self::assertSame(0, $observer->observe(new RatesImportPeriod($date, $date), new BufferedOutput(), 1, 2));
@@ -56,7 +61,15 @@ final class DispatcherAndProgressTest extends TestCase
     public function testInteractiveProgressRewritesTheSameBlockAndUsesObservedThroughput(): void
     {
         $repo = $this->createMock(RateImportJobRepositoryInterface::class);
-        $states = static fn (int $confirmed): array => ['confirmed' => $confirmed, 'waiting' => 0, 'processing' => 0, 'deferred' => 180 - $confirmed, 'error' => 0, 'inconsistentDone' => 0, 'missing' => 0];
+        $states = static fn (int $confirmed): RateImportProgress => new RateImportProgress(
+            confirmed: $confirmed,
+            waiting: 0,
+            processing: 0,
+            deferred: 180 - $confirmed,
+            error: 0,
+            inconsistentDone: 0,
+            missing: 0,
+        );
         $repo->expects(self::exactly(3))->method('progress')->willReturnOnConsecutiveCalls($states(66), $states(67), $states(68));
         $observer = new RateImportProgressObserver(new GetRateImportProgressHandler($repo), new MockClock(), new RateImportSettings(20, 2, 600, 20, 120, 2, 0));
         $period = new RatesImportPeriod(DatePointParser::parse('2026-05-06'), DatePointParser::parse('2026-11-01'));

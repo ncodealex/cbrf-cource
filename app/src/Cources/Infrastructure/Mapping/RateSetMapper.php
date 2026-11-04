@@ -6,13 +6,15 @@ namespace App\Cources\Infrastructure\Mapping;
 
 use App\Cources\Domain\Entity\RateItem;
 use App\Cources\Domain\Entity\RateSet;
-use App\Shared\Domain\DatePointParser;
 use App\Cources\Domain\ValueObject\CurrencyCode;
+use App\Shared\Domain\DatePointParser;
 use BcMath\Number;
 
 final readonly class RateSetMapper
 {
-    /** @return array{effectiveDate: string, items: list<array{code: string, sourceId: ?string, nominal: int, value: string, name: string, numCode: ?string}>} */
+    /**
+     * @return array{effectiveDate: string, items: list<array{code: string, sourceId: ?string, nominal: int, value: string, name: string, numCode: ?string}>}
+     */
     public function toArray(RateSet $rateSet): array
     {
         $items = [];

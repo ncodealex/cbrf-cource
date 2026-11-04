@@ -6,20 +6,17 @@ namespace App\Cources\Endpoints\Console\RefreshRateSet;
 
 use App\Cources\Application\UseCase\RefreshRateSet\RefreshRateSetHandler;
 use App\Shared\Domain\DatePointParser;
-use InvalidArgumentException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Throwable;
-use function count;
-use function sprintf;
 
 #[AsCommand(name: 'app:rates:refresh', description: 'Удалить и заново загрузить курсы для одной календарной даты')]
 final readonly class RefreshRateSetCommand
 {
-    public function __construct(private RefreshRateSetHandler $handler)
-    {
+    public function __construct(
+        private RefreshRateSetHandler $handler,
+    ) {
     }
 
     public function __invoke(
@@ -35,7 +32,7 @@ final readonly class RefreshRateSetCommand
 
         try {
             $requestDate = DatePointParser::parse($date);
-        } catch (InvalidArgumentException $e) {
+        } catch (\InvalidArgumentException $e) {
             $io->getErrorStyle()->error($e->getMessage());
 
             return Command::INVALID;
@@ -43,17 +40,17 @@ final readonly class RefreshRateSetCommand
 
         try {
             $rateSet = ($this->handler)($requestDate);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             $io->getErrorStyle()->error($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        $io->success(sprintf(
+        $io->success(\sprintf(
             'Курсы для даты %s обновлены: дата действия %s, валют: %d.',
             $requestDate->format('d.m.Y'),
             $rateSet->effectiveDate->format('d.m.Y'),
-            count($rateSet->items),
+            \count($rateSet->items),
         ));
 
         return Command::SUCCESS;

@@ -12,7 +12,9 @@ use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\Schema;
 use Psr\Log\NullLogger;
 
-/** @phpstan-import-type Params from DriverManager */
+/**
+ * @phpstan-import-type Params from DriverManager
+ */
 final class RateImportLifecycleTest extends RateSetStorageTestCase
 {
     private DoctrineRateImportJobRepository $jobs;
@@ -43,7 +45,7 @@ final class RateImportLifecycleTest extends RateSetStorageTestCase
         self::assertNull($this->jobs->claim('2026-01-01', 0, 120));
         self::assertTrue($this->jobs->finish($claim, RateImportAction::Fail, 1, null, '12345678-1234-4234-8234-123456789abc', 'ошибка'));
         self::assertFalse($this->jobs->finish($claim, RateImportAction::Defer, 1));
-        self::assertSame(1, $this->jobs->errors(null, 100)['total']);
+        self::assertSame(1, $this->jobs->errors(null, 100)->total);
         self::assertSame(1, $this->jobs->retryErrors('2026-01-01'));
         self::assertSame(0, $this->jobs->retryErrors(null));
         $fresh = $this->jobs->claim('2026-01-01', 3, 120);
@@ -55,7 +57,9 @@ final class RateImportLifecycleTest extends RateSetStorageTestCase
     public function testDispatchReservationsAndIndependentClaim(): void
     {
         $this->jobs->register([DatePointParser::parse('2026-01-01'), DatePointParser::parse('2026-01-02')]);
-        /** @var Params $params */
+        /**
+         * @var Params $params
+         */
         $params = $this->connection->getParams();
         $other = DriverManager::getConnection($params);
         try {
@@ -85,9 +89,9 @@ final class RateImportLifecycleTest extends RateSetStorageTestCase
         $this->connection->executeStatement("UPDATE rate_import_jobs SET status = 'done'");
         $period = new RatesImportPeriod($date, DatePointParser::parse('2026-01-02'));
         $snapshot = $this->jobs->progress($period);
-        self::assertSame(0, $snapshot['confirmed']);
-        self::assertSame(1, $snapshot['inconsistentDone']);
-        self::assertSame(1, $snapshot['missing']);
+        self::assertSame(0, $snapshot->confirmed);
+        self::assertSame(1, $snapshot->inconsistentDone);
+        self::assertSame(1, $snapshot->missing);
         self::assertSame(1, $this->jobs->requeueUnconfirmedDone($period));
         self::assertSame(0, $this->jobs->requeueUnconfirmedDone($period));
     }
@@ -177,7 +181,9 @@ final class RateImportLifecycleTest extends RateSetStorageTestCase
         self::assertNotNull($claim);
         self::assertSame([], $this->jobs->expired(20));
         $this->connection->executeStatement("UPDATE rate_import_jobs SET lease_until=NOW()-INTERVAL '1 second'");
-        /** @var Params $params */
+        /**
+         * @var Params $params
+         */
         $params = $this->connection->getParams();
         $other = DriverManager::getConnection($params);
         try {
@@ -186,7 +192,7 @@ final class RateImportLifecycleTest extends RateSetStorageTestCase
             self::assertTrue($this->jobs->recover($claim, 5, null));
             self::assertFalse(new DoctrineRateImportJobRepository($other)->recover($claim, 5, null));
             $this->connection->commit();
-            self::assertSame(1, $this->jobs->errors(null, 100)['total']);
+            self::assertSame(1, $this->jobs->errors(null, 100)->total);
             self::assertFalse($this->jobs->finish($claim, RateImportAction::Complete, 0));
         } finally {
             if ($this->connection->isTransactionActive()) {

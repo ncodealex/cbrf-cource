@@ -13,8 +13,10 @@ use Symfony\Component\Clock\DatePoint;
 
 final readonly class RatesImportHandler
 {
-    public function __construct(private RateImportJobRepositoryInterface $repository, private LoggerInterface $logger = new NullLogger())
-    {
+    public function __construct(
+        private RateImportJobRepositoryInterface $repository,
+        private LoggerInterface $logger = new NullLogger(),
+    ) {
     }
 
     public function __invoke(RatesImportPeriod $period): RatesImportResult
@@ -32,7 +34,11 @@ final readonly class RatesImportHandler
         }
         $inserted = $this->repository->register($missing);
 
-        $this->logger->info('Регистрация заданий импорта.', ['created' => \count($inserted), 'confirmed' => \count($confirmed), 'repaired_done' => $requeuedDone]);
+        $this->logger->info('Регистрация заданий импорта.', [
+            'created' => \count($inserted),
+            'confirmed' => \count($confirmed),
+            'repaired_done' => $requeuedDone,
+        ]);
 
         return new RatesImportResult(
             $period,

@@ -3,16 +3,18 @@
 declare(strict_types=1);
 
 use App\Cources\Application\Exception\RateSetConflict;
-use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Mapping\RateSetMapper;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
+use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use Doctrine\DBAL\DriverManager;
 
 require dirname(__DIR__, 2).'/vendor/autoload.php';
 
 try {
-    /** @var array{params: array{driver: 'pdo_pgsql', host: string, port: int, dbname: string, user: string, password: string}, schema: string, requested: string, variant: string} $input параметры из родительского тестового процесса */
+    /**
+     * @var array{params: array{driver: 'pdo_pgsql', host: string, port: int, dbname: string, user: string, password: string}, schema: string, requested: string, variant: string} $input параметры из родительского тестового процесса
+     */
     $input = json_decode(stream_get_contents(\STDIN), true, 512, \JSON_THROW_ON_ERROR);
     $connection = DriverManager::getConnection($input['params']);
     $schema = $input['schema'];

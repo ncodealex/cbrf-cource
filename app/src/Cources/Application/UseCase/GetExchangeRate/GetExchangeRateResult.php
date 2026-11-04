@@ -32,7 +32,7 @@ final readonly class GetExchangeRateResult
 
     public static function fromDomain(DatePoint $requestedDate, CurrencyPair $pair, ExchangeRate $exchangeRate): self
     {
-        $item  = $exchangeRate->currentRateItem;
+        $item = $exchangeRate->currentRateItem;
         $scale = ($pair->currency->isRuble() ? $exchangeRate->baseRateItem : $item)->sourceScale()
             ?? ExchangeRateCalculator::INTERNAL_SCALE;
 
@@ -50,5 +50,4 @@ final readonly class GetExchangeRateResult
             $exchangeRate->diff->round($scale),
         );
     }
-
 }

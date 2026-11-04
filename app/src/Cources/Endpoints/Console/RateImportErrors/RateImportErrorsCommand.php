@@ -16,8 +16,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 #[AsCommand(name: 'app:rates:errors', description: 'Просмотр терминальных ошибок импорта')]
 final readonly class RateImportErrorsCommand
 {
-    public function __construct(private ListRateImportErrorsHandler $handler)
-    {
+    public function __construct(
+        private ListRateImportErrorsHandler $handler,
+    ) {
     }
 
     public function __invoke(SymfonyStyle $io, #[Option] ?string $date = null, #[Option] string $limit = '100'): int
@@ -38,11 +39,16 @@ final readonly class RateImportErrorsCommand
         }
         $io->title('Ошибочные задания импорта');
         $rows = [];
-        foreach ($result['rows'] as $row) {
-            $rows[] = [$row['requested_date'], $row['attempts'], $row['error_code'], OutputFormatter::escape(preg_replace('/[\x00-\x1f\x7f-\x9f]/u', ' ', $row['error_text']) ?? '')];
+        foreach ($result->items as $error) {
+            $rows[] = [
+                $error->requestedDate,
+                $error->attempts,
+                $error->errorCode,
+                OutputFormatter::escape(preg_replace('/[\x00-\x1f\x7f-\x9f]/u', ' ', $error->errorText) ?? ''),
+            ];
         }
         $io->table(['Дата', 'Попытки', 'Код ошибки', 'Ошибка'], $rows);
-        $io->text(\sprintf('Всего ошибочных заданий: %d. Показано: %d.', $result['total'], \count($rows)));
+        $io->text(\sprintf('Всего ошибочных заданий: %d. Показано: %d.', $result->total, \count($rows)));
 
         return Command::SUCCESS;
     }

@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Cources;
 
 use App\Cources\Application\Exception\RateSetCacheFailure;
 use App\Cources\Application\Exception\RateSetNotFound;
-use App\Shared\Domain\DatePointParser;
 use App\Cources\Infrastructure\Cache\RedisRateSetCache;
 use App\Cources\Infrastructure\Mapping\RateSetMapper;
+use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 

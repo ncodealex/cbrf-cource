@@ -118,7 +118,7 @@ final readonly class RatesImportCommand
         }
         $io->section('Текущее состояние');
         foreach (RateImportStatus::cases() as $status) {
-            $io->definitionList([$status->label() => $result->states[$status->value]]);
+            $io->definitionList([$status->label() => $result->statistics->get($status)]);
         }
         $io->success('Задания зарегистрированы.');
         if ($progress && null !== $this->observer) {

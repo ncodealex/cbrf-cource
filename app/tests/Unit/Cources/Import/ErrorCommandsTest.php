@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Cources\Import;
 
 use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
+use App\Cources\Application\Import\RateImportError;
+use App\Cources\Application\Import\RateImportErrorList;
 use App\Cources\Application\UseCase\ListRateImportErrors\ListRateImportErrorsHandler;
 use App\Cources\Application\UseCase\RetryRateImportErrors\RetryRateImportErrorsHandler;
 use App\Cources\Endpoints\Console\RateImportErrors\RateImportErrorsCommand;
@@ -18,7 +20,19 @@ final class ErrorCommandsTest extends TestCase
     public function testErrorTableEscapesControlsAndShowsFullUuid(): void
     {
         $repo = $this->createMock(RateImportJobRepositoryInterface::class);
-        $repo->expects(self::once())->method('errors')->with('2026-01-01', 1)->willReturn(['total' => 3, 'rows' => [['requested_date' => '2026-01-01', 'attempts' => 5, 'error_code' => '12345678-1234-4234-8234-123456789abc', 'error_text' => "\033[31m<error>bad</error>"]]]);
+        $repo->expects(self::once())->method('errors')->with('2026-01-01', 1)->willReturn(
+            new RateImportErrorList(
+                total: 3,
+                items: [
+                    new RateImportError(
+                        requestedDate: '2026-01-01',
+                        attempts: 5,
+                        errorCode: '12345678-1234-4234-8234-123456789abc',
+                        errorText: "\033[31m<error>bad</error>",
+                    ),
+                ],
+            ),
+        );
         $tester = new CommandTester(new Command()->setCode(new RateImportErrorsCommand(new ListRateImportErrorsHandler($repo))));
         self::assertSame(0, $tester->execute(['--date' => '2026-01-01', '--limit' => '1']));
         $text = $tester->getDisplay();

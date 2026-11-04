@@ -12,10 +12,14 @@ use Symfony\Component\Messenger\MessageBusInterface;
 #[AsAlias(RateImportJobPublisherInterface::class)]
 final readonly class MessengerRateImportJobPublisher implements RateImportJobPublisherInterface
 {
-    public function __construct(private MessageBusInterface $bus)
-    {
+    public function __construct(
+        private MessageBusInterface $bus,
+    ) {
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function publish(ProcessRateImportMessage $message): void
     {
         $this->bus->dispatch($message);

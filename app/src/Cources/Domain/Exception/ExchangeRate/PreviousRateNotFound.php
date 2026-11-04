@@ -10,8 +10,7 @@ final class PreviousRateNotFound extends ExchangeRateException
         public readonly string $currency,
         public readonly string $previousEffectiveDate,
         ?\Throwable $previous = null
-    )
-    {
+    ) {
         parent::__construct(\sprintf('В предыдущем наборе от %s нет курса %s', $previousEffectiveDate, $currency), 0, $previous);
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Shared\Domain;
 
 use App\Shared\Domain\DatePointParser;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\DatePoint;
@@ -28,12 +27,14 @@ final class DatePointParserTest extends TestCase
             $date = DatePointParser::dateOf($moment);
 
             self::assertInstanceOf(DatePoint::class, $date);
-            self::assertSame($expected . ' 00:00:00.000000 Europe/Moscow', $date->format('Y-m-d H:i:s.u e'));
+            self::assertSame($expected.' 00:00:00.000000 Europe/Moscow', $date->format('Y-m-d H:i:s.u e'));
             self::assertSame($original, $moment->format('Y-m-d H:i:s.u e'));
         }
     }
 
-    /** @return iterable<string, array{string, string}> */
+    /**
+     * @return iterable<string, array{string, string}>
+     */
     public static function moments(): iterable
     {
         yield 'before midnight' => ['2026-10-25 20:59:59.999999 UTC', '2026-10-25'];
@@ -49,10 +50,12 @@ final class DatePointParserTest extends TestCase
         $date = DatePointParser::parse($value);
 
         self::assertInstanceOf(DatePoint::class, $date);
-        self::assertSame($expected . ' 00:00:00.000000 Europe/Moscow', $date->format('Y-m-d H:i:s.u e'));
+        self::assertSame($expected.' 00:00:00.000000 Europe/Moscow', $date->format('Y-m-d H:i:s.u e'));
     }
 
-    /** @return iterable<string, array{string, string}> */
+    /**
+     * @return iterable<string, array{string, string}>
+     */
     public static function validDates(): iterable
     {
         yield 'ISO' => ['1992-07-03', '1992-07-03'];
@@ -62,7 +65,7 @@ final class DatePointParserTest extends TestCase
         foreach (['.', '/', '-'] as $separator) {
             foreach (['3', '03'] as $day) {
                 foreach (['7', '07'] as $month) {
-                    $value = $day . $separator . $month . $separator . '1992';
+                    $value = $day.$separator.$month.$separator.'1992';
                     yield $value => [$value, '1992-07-03'];
                 }
             }
@@ -72,13 +75,15 @@ final class DatePointParserTest extends TestCase
     #[DataProvider('invalidDates')]
     public function testRejectsInvalidDate(string $value): void
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Некорректная календарная дата.');
 
         DatePointParser::parse($value);
     }
 
-    /** @return iterable<array{string}> */
+    /**
+     * @return iterable<array{string}>
+     */
     public static function invalidDates(): iterable
     {
         foreach ([

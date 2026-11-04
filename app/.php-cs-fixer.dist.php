@@ -17,6 +17,7 @@ return new PhpCsFixer\Config()
         'final_class' => true,
         'global_namespace_import' => ['import_classes' => false, 'import_constants' => false, 'import_functions' => false],
         'native_function_invocation' => ['include' => ['@compiler_optimized'], 'scope' => 'namespaced'],
+        'no_superfluous_phpdoc_tags' => ['remove_inheritdoc' => false],
         'ordered_imports' => ['imports_order' => ['class', 'function', 'const']],
         'php_unit_test_class_requires_covers' => false,
         'phpdoc_to_comment' => false,

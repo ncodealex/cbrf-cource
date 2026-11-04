@@ -27,9 +27,9 @@ use Symfony\Component\Clock\DatePoint;
 interface RateSetRepositoryInterface
 {
     /**
-     *  Получить котировки на календарную дату.
+     * Получить набор курсов, подтверждённый для календарной даты запроса.
      *
-     * @throws RateSetNotFound
+     * @throws RateSetNotFound если для даты отсутствует подтверждённая связь с набором
      */
     public function get(DatePoint $requestDate): RateSet;
 
@@ -46,12 +46,18 @@ interface RateSetRepositoryInterface
     public function save(DatePoint $requestDate, RateSet $rateSet): void;
 
     /**
-     * @return list<DatePoint> все календарные даты, связанные с тем же набором
+     * Получить все календарные даты, связанные с набором выбранной даты.
+     *
+     * Если выбранная дата не подтверждена, возвращается пустой список.
+     *
+     * @return list<DatePoint> связанные даты в хронологическом порядке
      */
     public function relatedRequestDates(DatePoint $requestDate): array;
 
     /**
-     * Удалить набор выбранной даты; связанные календарные даты удаляются каскадно.
+     * Удалить общий набор выбранной даты и все его календарные связи каскадно.
+     *
+     * Если выбранная дата не подтверждена, операция не изменяет хранилище.
      */
     public function delete(DatePoint $requestDate): void;
 }

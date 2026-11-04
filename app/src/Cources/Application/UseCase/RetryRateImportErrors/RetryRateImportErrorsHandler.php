@@ -8,8 +8,9 @@ use App\Cources\Application\Contract\RateImportJobRepositoryInterface;
 
 final readonly class RetryRateImportErrorsHandler
 {
-    public function __construct(private RateImportJobRepositoryInterface $repository)
-    {
+    public function __construct(
+        private RateImportJobRepositoryInterface $repository,
+    ) {
     }
 
     public function __invoke(?string $date): int

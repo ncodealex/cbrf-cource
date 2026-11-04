@@ -9,7 +9,6 @@ use App\Cources\Domain\Exception\ExchangeRate\InvalidRateDateOrder;
 use App\Cources\Domain\Exception\ExchangeRate\PreviousRateNotFound;
 use App\Cources\Domain\Exception\ExchangeRate\RateNotFoundForDate;
 use BcMath\Number;
-use function sprintf;
 
 /**
  * Прямые и кросс-курсы по официальным рублёвым котировкам. Промежуточные значения
@@ -28,24 +27,25 @@ final class ExchangeRateCalculator
     public function calculate(RateSet $current, RateSet $previous, CurrencyPair $pair): ExchangeRate
     {
         if ($previous->date() >= $current->date()) {
-            throw new InvalidRateDateOrder(sprintf('Предыдущий набор курсов от %s должен предшествовать текущему от %s',
-                $previous->date(), $current->date()));
+            throw new InvalidRateDateOrder(\sprintf('Предыдущий набор курсов от %s должен предшествовать текущему от %s', $previous->date(), $current->date()));
         }
 
-        /// Курс за запрошенный день
+        /*
+         * Курс за запрошенный день.
+         */
         $rate = $this->rate($current, $pair);
 
         try {
-            /// Курс за предыдущий день
+            /*
+             * Курс за предыдущий день.
+             */
             $previousRate = $this->rate($previous, $pair);
         } catch (RateNotFoundForDate $e) {
-            throw new PreviousRateNotFound(
-                $e->currency,
-                $previous->date(),
-                $e
-            );
+            throw new PreviousRateNotFound($e->currency, $previous->date(), $e);
         }
-        /// Разница курсов
+        /*
+         * Изменение относительно предыдущего набора.
+         */
         $diff = $rate->sub($previousRate);
 
         return new ExchangeRate(
@@ -60,12 +60,7 @@ final class ExchangeRateCalculator
     }
 
     /**
-     *   Курс за 1 единицу для валютной пары
-     *
-     * @param RateSet      $set
-     * @param CurrencyPair $pair
-     *
-     * @return Number
+     *   Курс за 1 единицу для валютной пары.
      */
     public function rate(RateSet $set, CurrencyPair $pair): Number
     {
@@ -73,18 +68,23 @@ final class ExchangeRateCalculator
             return new Number('1');
         }
 
-        /// Курс одной целевой единицы по отношению к рублю
+        /*
+         * Курс одной целевой единицы по отношению к рублю.
+         */
         $currency = $set->get($pair->currency)->unit();
 
         if ($pair->base->isRuble()) {
-            /// Если базовая валюта это рубль - возвращаем (тк по ЦБ у нас все через рубль )
+            /*
+             * Котировки Банка России уже выражены в рублях.
+             */
             return $currency;
         }
 
-        /// Вычисление через кросс-курс
+        /*
+         * Для другой базовой валюты рассчитываем кросс-курс через рубль.
+         */
         $cross = $set->get($pair->base)->unit();
 
         return $currency->div($cross, self::INTERNAL_SCALE);
     }
-
 }

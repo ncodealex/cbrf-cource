@@ -18,7 +18,6 @@ use App\Shared\Domain\DateFormatInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use Throwable;
 
 #[AsAlias(RateSetProviderInterface::class)]
 final readonly class RateSetResolver implements RateSetProviderInterface
@@ -33,13 +32,18 @@ final readonly class RateSetResolver implements RateSetProviderInterface
     ) {
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function resolve(DatePoint $requestDate): RateSet
     {
         $this->assert($requestDate);
         try {
             return $this->cache->get($requestDate);
         } catch (RateSetNotFound) {
-            // Отсутствие записи в кеше — штатное событие.
+            /*
+             * Отсутствие записи в кеше является штатным событием.
+             */
         } catch (RateSetCacheFailure $e) {
             $this->logger->warning('Не удалось прочитать кеш курсов', ['exception' => $e]);
         }
@@ -49,11 +53,15 @@ final readonly class RateSetResolver implements RateSetProviderInterface
             /**
              *  Если набора нет в БД идем в API
              *  - Используется эксклюзивная блокировка на ресурс $requestDate для дедубликации запросов в API
-             *  - Если что-то пошло не так, под капотом блокировка снимается в блоке finally
+             *  - Если что-то пошло не так, под капотом блокировка снимается в блоке finally.
              */
-            return $this->loadLock->synchronized($requestDate,
+            return $this->loadLock->synchronized(
+                $requestDate,
                 function (RateSetLoadLockGuard $guard) use ($requestDate): RateSet {
-                    /// Перед запросом еще раз проверяем запись в БД тк другой воркер, например, мог уже вставить запись
+                    /*
+                     * Перед запросом повторно проверяем БД: другой воркер
+                     * мог сохранить набор до получения блокировки.
+                     */
                     try {
                         $rateSet = $this->repository->get($requestDate);
                         $this->logger->debug(
@@ -63,27 +71,38 @@ final readonly class RateSetResolver implements RateSetProviderInterface
                             ]
                         );
                     } catch (RateSetNotFound) {
-                        /// Перед запросом освежаем TTL блокировки тк запрос может отработать с задержкой
+                        /*
+                         * Перед внешним запросом продлеваем аренду блокировки,
+                         * поскольку источник может ответить с задержкой.
+                         */
                         $guard->refresh();
                         $rateSet = $this->gateway->fetch($requestDate);
-                        /// Перед сохранением в БД освежаем TTL
+                        /*
+                         * Перед сохранением повторно подтверждаем владение блокировкой.
+                         */
                         $guard->refresh();
                         try {
                             $this->repository->save($requestDate, $rateSet);
-                        } catch (Throwable $e) {
+                        } catch (\Throwable $e) {
                             $this->logger->error('Не удалось сохранить набор курсов', [
-                                'requested_date'  => $requestDate->format(DateFormatInterface::ISO),
+                                'requested_date' => $requestDate->format(DateFormatInterface::ISO),
                                 'exception_class' => $e::class,
                             ]);
                             throw $e;
                         }
                     }
-                    /// Записываем сет в кеш и возвращаем
+                    /*
+                     * Заполняем кеш только после успешного чтения или сохранения в БД.
+                     */
                     $this->warmCache($requestDate, $rateSet);
+
                     return $rateSet;
-                });
+                }
+            );
         }
-        /// Сет получили из БД
+        /*
+         * Набор, полученный из БД, также прогревает кеш календарной даты.
+         */
         $this->warmCache($requestDate, $rateSet);
 
         return $rateSet;

@@ -19,9 +19,9 @@ final readonly class GetExchangeRateHandler
 
     public function __invoke(GetExchangeRateQuery $query): GetExchangeRateResult
     {
-        $current  = $this->provider->resolve($query->requestedDate);
+        $current = $this->provider->resolve($query->requestedDate);
         $previous = $this->provider->resolve($current->effectiveDate->modify('-1 day'));
-        $rate     = $this->calculator->calculate($current, $previous, $query->pair);
+        $rate = $this->calculator->calculate($current, $previous, $query->pair);
 
         return GetExchangeRateResult::fromDomain(
             $query->requestedDate,
