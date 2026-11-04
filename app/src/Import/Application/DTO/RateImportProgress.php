@@ -6,6 +6,9 @@ namespace App\Import\Application\DTO;
 
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Снимок распределения дат периода по подтверждению и состояниям заданий; включает пропуски и некорректные Done.
+ */
 #[Exclude]
 final readonly class RateImportProgress
 {

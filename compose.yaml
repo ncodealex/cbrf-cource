@@ -70,7 +70,7 @@ x-app-depends-on: &app-depends-on
         condition: service_healthy
 
 services:
-    # Одноразовая подготовка: миграции и проверка подключений из приложения.
+    # Подготовка приложения, затем ожидание ручных docker compose exec для тестового.
     # Успех локальных healthcheck зависимостей не проверяет настройки PHP-клиентов.
     app:
         logging: *logging
@@ -80,7 +80,13 @@ services:
         volumes:
             - app_logs:/app/var/log
         environment: *app-environment
-        command: [app-initialize]
+        command: [app-initialize, sleep, infinity]
+        healthcheck:
+            # Маркер успешной подготовки; это не мониторинг зависимостей во время работы.
+            test: ["CMD", "test", "-f", "/tmp/app-initialized"]
+            interval: 2s
+            timeout: 1s
+            retries: 60
         depends_on: *app-depends-on
         restart: "no"
 
@@ -104,7 +110,7 @@ services:
             # Инфраструктура нужна самому процессу; app дополнительно гарантирует миграции.
             <<: *app-depends-on
             app:
-                condition: service_completed_successfully
+                condition: service_healthy
         restart: unless-stopped
 
     import-dispatcher:
@@ -122,7 +128,7 @@ services:
         depends_on:
             <<: *app-depends-on
             app:
-                condition: service_completed_successfully
+                condition: service_healthy
 
     postgres:
         logging: *logging

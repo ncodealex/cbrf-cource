@@ -46,7 +46,7 @@ MESSENGER_TRANSPORT_DSN='amqp://rabbitmq:1/%2f' assert_startup_failure rabbitmq
 
 compose up -d --wait --wait-timeout 120 --scale worker=3
 app_id="$(compose ps -aq app)"
-test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$app_id")" = exited:0
+test "$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' "$app_id")" = running:0
 for probe in postgres redis migrations rabbitmq; do
     compose logs --no-color app | grep -F "$probe: ok"
 done
@@ -58,10 +58,10 @@ verify_workers() {
     done
 }
 verify_workers
-compose run --rm --no-deps app php bin/console doctrine:migrations:up-to-date --no-interaction
-compose run --rm --no-deps app php bin/console lint:container --env=prod --no-debug
+compose exec -T app php bin/console doctrine:migrations:up-to-date --no-interaction
+compose exec -T app php bin/console lint:container --env=prod --no-debug
 compose run --rm --no-deps -e TZ=Asia/Tokyo app php -r 'exit(date_default_timezone_get() === "Asia/Tokyo" ? 0 : 1);'
-if compose run --rm --no-deps -e POSTGRES_DB=missing_startup_test app >/dev/null 2>&1; then
+if compose run --rm --no-deps -e POSTGRES_DB=missing_startup_test app app-initialize >/dev/null 2>&1; then
     echo 'Миграция должна завершиться ошибкой для отсутствующей БД.' >&2
     exit 1
 fi
@@ -70,6 +70,9 @@ if compose run --rm --no-deps app php bin/console startup_logging_probe >/dev/nu
 worker_id="$(compose ps -q worker | head -n 1)"
 if docker exec "$worker_id" php bin/console startup_logging_probe >/dev/null 2>&1; then exit 1; fi
 compose run --rm --no-deps app sh -c 'test "$(grep -h -c startup_logging_probe var/log/error-*.log | awk "{s+=\$1} END {print s}")" = 2'
+compose restart app
+compose up -d --no-deps --wait --wait-timeout 120 app
+compose exec -T app php bin/console app:health:ready --quiet
 compose restart worker import-dispatcher
 verify_workers
 compose up -d --no-deps --force-recreate --wait --wait-timeout 120 --scale worker=3 worker import-dispatcher

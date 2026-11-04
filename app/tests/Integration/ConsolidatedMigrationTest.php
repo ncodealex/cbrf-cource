@@ -6,7 +6,7 @@ namespace App\Tests\Integration;
 
 use App\Tests\Integration\Cources\RateSetStorageTestCase;
 use Doctrine\DBAL\Schema\Schema;
-use DoctrineMigrations\Version20261030000000;
+use DoctrineMigrations\Version20261101000000;
 use Psr\Log\NullLogger;
 
 final class ConsolidatedMigrationTest extends RateSetStorageTestCase
@@ -20,7 +20,7 @@ final class ConsolidatedMigrationTest extends RateSetStorageTestCase
         self::assertArrayHasKey('idx_rate_import_jobs_expired_lease', $indexes);
         self::assertArrayHasKey('idx_rate_request_dates_effective', $manager->listTableIndexes('rate_request_dates'));
 
-        $migration = new Version20261030000000($this->connection, new NullLogger());
+        $migration = new Version20261101000000($this->connection, new NullLogger());
         $migration->down(new Schema());
         foreach ($migration->getSql() as $query) {
             $this->connection->executeStatement($query->getStatement());
@@ -35,7 +35,7 @@ final class ConsolidatedMigrationTest extends RateSetStorageTestCase
         );
         self::assertSame([], $remaining->fetchFirstColumn());
 
-        $migration = new Version20261030000000($this->connection, new NullLogger());
+        $migration = new Version20261101000000($this->connection, new NullLogger());
         $migration->up(new Schema());
         foreach ($migration->getSql() as $query) {
             $this->connection->executeStatement($query->getStatement());

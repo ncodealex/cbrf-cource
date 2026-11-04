@@ -8,7 +8,7 @@ use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
-final class Version20261030000000 extends AbstractMigration
+final class Version20261101000000 extends AbstractMigration
 {
     public function getDescription(): string
     {

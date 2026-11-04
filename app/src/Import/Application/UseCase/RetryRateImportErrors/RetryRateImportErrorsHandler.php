@@ -15,6 +15,7 @@ final readonly class RetryRateImportErrorsHandler
 
     public function __invoke(?string $date): int
     {
+        // 1. Сбросить выбранные терминальные ошибки для повторной диспетчеризации.
         return $this->repository->retryErrors($date);
     }
 }

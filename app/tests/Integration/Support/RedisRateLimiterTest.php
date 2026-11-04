@@ -18,7 +18,7 @@ final class RedisRateLimiterTest extends KernelTestCase
     {
         $storage = self::getContainer()->get(RedisRateLimiterStorage::class);
         $id = 'integration-'.bin2hex(random_bytes(8));
-        $state = new TokenBucket($id, 1, new Rate(new \DateInterval('PT3S'), 1));
+        $state = new TokenBucket($id, 1, new Rate(new \DateInterval('PT1S'), 1));
 
         try {
             self::assertNull($storage->fetch($id));
@@ -64,6 +64,13 @@ final class RedisRateLimiterTest extends KernelTestCase
             self::assertTrue($second->accepted);
             self::assertFalse($third->accepted);
             self::assertGreaterThan(new \DateTimeImmutable(), $third->retryAt);
+            self::assertLessThanOrEqual(2.0, (float) $third->retryAt->format('U.u') - microtime(true));
+            $remaining = (float) $third->retryAt->format('U.u') - microtime(true);
+            if ($remaining > 0) {
+                usleep((int) ceil(($remaining + 0.05) * 1_000_000));
+            }
+            $fourth = self::getContainer()->get(RequestRateLimiter::class)->acquire();
+            self::assertTrue($fourth->accepted);
         } finally {
             $storage->delete(self::LIMITER_ID);
         }

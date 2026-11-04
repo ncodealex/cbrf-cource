@@ -13,7 +13,7 @@ final class ReadinessCommandTest extends KernelTestCase
     public function testPendingMigrationMakesCommandFail(): void
     {
         $connection = self::getContainer()->get(Connection::class);
-        $version = 'DoctrineMigrations\\Version20261030000000';
+        $version = 'DoctrineMigrations\\Version20261101000000';
         $connection->executeStatement(
             <<<'SQL'
                 UPDATE doctrine_migration_versions

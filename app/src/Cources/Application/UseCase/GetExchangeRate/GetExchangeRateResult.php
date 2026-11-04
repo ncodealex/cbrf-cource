@@ -12,6 +12,10 @@ use BcMath\Number;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Курс на дату запроса, предыдущий курс и изменение с округлением для вывода.
+ * Исходная котировка ЦБ хранится отдельно от курса одной единицы валюты.
+ */
 #[Exclude]
 final readonly class GetExchangeRateResult
 {

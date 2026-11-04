@@ -12,6 +12,9 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * Периодически показывает прогресс импорта до завершения, остановки или истечения времени ожидания.
+ */
 final readonly class RateImportProgressObserver
 {
     public function __construct(

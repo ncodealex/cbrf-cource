@@ -8,6 +8,9 @@ use App\Cources\Domain\CurrencyPair;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Вход сценария: календарная дата запроса и валютная пара для расчёта.
+ */
 #[Exclude]
 final readonly class GetExchangeRateQuery
 {

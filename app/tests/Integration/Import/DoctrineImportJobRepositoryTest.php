@@ -6,19 +6,91 @@ namespace App\Tests\Integration\Import;
 
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRefreshStorage;
 use App\Cources\Infrastructure\Persistence\DoctrineRateSetRepository;
+use App\Import\Domain\Entity\ImportJob;
 use App\Import\Domain\Enum\RateImportAction;
+use App\Import\Domain\Enum\RateImportStatus;
+use App\Import\Domain\ValueObject\RatesImportPeriod;
 use App\Import\Infrastructure\Persistence\DoctrineImportJobRepository;
 use App\Shared\Contracts\Import\StaleImportExecution;
 use App\Shared\Domain\DatePointParser;
 use App\Tests\Unit\Cources\Domain\RateSets;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\Clock\DatePoint;
 
 /**
  * @phpstan-import-type Params from DriverManager
  */
 final class DoctrineImportJobRepositoryTest extends ImportJobStorageTestCase
 {
+    /**
+     * @return iterable<string, array{string, RateImportStatus}>
+     */
+    public static function resetOperations(): iterable
+    {
+        yield 'retry error' => ['retry', RateImportStatus::Error];
+        yield 'repair done' => ['repair', RateImportStatus::Done];
+        yield 'refresh processing' => ['refresh', RateImportStatus::Processing];
+        yield 'refresh deferred' => ['refresh', RateImportStatus::Deferred];
+        yield 'refresh waiting' => ['refresh', RateImportStatus::Waiting];
+    }
+
+    #[DataProvider('resetOperations')]
+    public function testBulkResetMatchesDomain(string $operation, RateImportStatus $status): void
+    {
+        $date = DatePointParser::parse('2026-01-01');
+        $old = new DatePoint('2025-12-31 12:00:00 Europe/Moscow');
+        $job = new ImportJob($date, $status, 7, 3, $old, $old, $old, $old, '12345678-1234-4234-8234-123456789abc', 'Ошибка');
+        $this->jobs->register([$date]);
+        $this->connection->executeStatement(
+            <<<'SQL'
+                UPDATE rate_import_jobs
+                SET status = :status, version = 7, attempts = 3,
+                    available_at = :old, lease_until = :old, dispatched_at = :old,
+                    completed_at = :old, error_code = '12345678-1234-4234-8234-123456789abc', error_text = 'Ошибка'
+                WHERE requested_date = :date
+                SQL,
+            ['status' => $status->value, 'old' => $old->format('Y-m-d H:i:s.uP'), 'date' => '2026-01-01'],
+        );
+
+        $before = new DatePoint();
+        match ($operation) {
+            'retry' => $this->jobs->retryErrors('2026-01-01'),
+            'repair' => $this->jobs->requeueUnconfirmedDone(new RatesImportPeriod($date, $date)),
+            'refresh' => $this->jobs->resetForRefresh($date),
+            default => throw new \LogicException('Неизвестная операция.'),
+        };
+        $after = new DatePoint();
+        match ($operation) {
+            'retry' => $job->retryError($before),
+            'repair' => $job->repairDone($before, false),
+            'refresh' => $job->resetForRefresh($before),
+        };
+
+        $row = $this->connection->fetchAssociative(
+            <<<'SQL'
+                SELECT status, version, attempts, available_at, lease_until,
+                    dispatched_at, completed_at, error_code, error_text
+                FROM rate_import_jobs
+                WHERE requested_date = :date
+                SQL,
+            ['date' => '2026-01-01'],
+        );
+        self::assertIsArray($row);
+        self::assertSame($job->status->value, $row['status']);
+        self::assertSame($job->version, $row['version']);
+        self::assertSame($job->attempts, $row['attempts']);
+        foreach (['lease_until', 'dispatched_at', 'completed_at', 'error_code', 'error_text'] as $field) {
+            self::assertNull($row[$field]);
+        }
+        self::assertNotNull($job->availableAt);
+        self::assertIsString($row['available_at']);
+        $stored = new DatePoint($row['available_at']);
+        self::assertGreaterThanOrEqual((float) $before->format('U.u') - 0.01, (float) $stored->format('U.u'));
+        self::assertLessThanOrEqual((float) $after->format('U.u') + 0.01, (float) $stored->format('U.u'));
+    }
+
     public function testRefreshResetAndRateSetDeletionRollbackTogether(): void
     {
         $date = DatePointParser::parse('2026-10-24');

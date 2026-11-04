@@ -12,21 +12,32 @@ Symfony CLI-приложение для получения, хранения и 
 
 ```sh
 docker compose up --build -d --wait --wait-timeout 600
-docker compose run --rm --no-deps app php bin/console app:rates:get USD --date=2026-10-24
-docker compose run --rm --no-deps app php bin/console app:rates:import --days=30 --yes --progress
-docker compose run --rm --no-deps app php bin/console app:rates:errors
+docker compose exec app php bin/console app:rates:get USD --date=2026-10-24
+docker compose exec app php bin/console app:rates:import --days=30 --yes --progress
+docker compose exec app php bin/console app:rates:errors
 ```
 
-`app` применяет миграции, выполняет `app:health:ready` и завершается с кодом 0.
-На этом шаге проверка RabbitMQ включена обязательно. Worker и Dispatcher
-ждут успешного завершения обоих шагов. Постоянно работают только эти процессы
-и PostgreSQL, Redis, RabbitMQ. Ошибка миграции или readiness блокирует первый
-запуск зависимых процессов.
+`app` применяет миграции, выполняет `app:health:ready`, затем остаётся запущенным
+через `sleep infinity` для ручных `docker compose exec` и `docker exec`.
+Это намеренное удобство для проверки тестового задания: контейнер не обслуживает HTTP
+и не выполняет фоновую бизнес-работу. Например:
+
+```sh
+docker exec -it cbrf-cource-app-1 php bin/console app:rates:get USD --date=2026-10-15
+```
+
+Имя контейнера зависит от Compose project; `docker compose exec app` не требует знания имени.
+При подготовке проверка RabbitMQ включена обязательно. Worker и Dispatcher ждут
+успешной подготовки `app`; его healthcheck проверяет маркер завершения подготовки,
+а не текущую доступность зависимостей. Ошибка миграции или readiness завершает `app`
+с ошибкой и блокирует первый запуск исполнителей. При перезапуске `app` подготовка
+выполняется заново. Разовые команды через `docker compose run --rm --no-deps app
+php bin/console ...` также доступны и не запускают подготовку.
 
 ```sh
 docker compose up -d --wait --scale worker=3
 docker compose logs --tail=100 worker import-dispatcher
-docker compose run --rm --no-deps app php bin/console app:health:ready
+docker compose exec app php bin/console app:health:ready
 docker compose down
 ```
 
@@ -78,7 +89,8 @@ APP_SECRET берётся из окружения или локального з
 генерации секрета и общего тома подготовки нет.
 Сервис `app` запускает `app-initialize` — скрипт `.docker/scripts/initialize.sh`:
 сначала миграции, затем readiness. Ошибка любой команды завершает подготовку.
-Worker и Dispatcher ждут успешного завершения `app` и healthy-зависимостей.
+После успешной подготовки `app` создаёт локальный маркер и выполняет `sleep infinity`.
+Worker и Dispatcher ждут healthcheck этого маркера и healthy-зависимостей.
 Readiness проверяет подключения с настройками приложения, включая авторизацию
 RabbitMQ; локальные healthcheck инфраструктуры эту проверку не заменяют.
 Это проверка при инициализации, а не гарантия доступности на всё время работы.

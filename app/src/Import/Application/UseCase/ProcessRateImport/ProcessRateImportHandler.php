@@ -18,8 +18,10 @@ use App\Support\Retry\Application\RetryDecision;
 use App\Support\Retry\Application\RetryPolicy;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Throwable;
 
 final readonly class ProcessRateImportHandler
 {
@@ -37,12 +39,15 @@ final readonly class ProcessRateImportHandler
 
     public function __invoke(ProcessRateImportMessage $message): void
     {
+        // 1. Захватить актуальную версию задания; устаревшее сообщение пропустить.
         $claim = $this->repository->claim($message->requestedDate, $message->version, $this->settings->leaseSeconds);
         if (null === $claim) {
             return;
         }
-        $this->logger->info('Задание импорта захвачено.', ['requested_date' => $claim->requestedDate, 'version' => $claim->version]);
+        $this->logger->info('Задание импорта захвачено.',
+            ['requested_date' => $claim->requestedDate, 'version' => $claim->version]);
         $attempts = $claim->attempts;
+        // 2. Подтвердить дату или запросить её у источника с fencing token.
         // Ошибки чтения/записи PostgreSQL выходят в Messenger, не маскируются прикладным Error.
         if (!$this->provider->isConfirmed($claim->requestedDate)) {
             $failure = null;
@@ -51,9 +56,10 @@ final readonly class ProcessRateImportHandler
                 ++$attempts;
             } catch (StaleImportExecution) {
                 return;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $failure = $e;
             }
+            // 3. Классифицировать сбой и сохранить отложенный повтор либо Error.
             if (null !== $failure) {
                 if (!$failure instanceof RetryableFailure && !$failure instanceof RateImportPermanentFailure) {
                     throw $failure;
@@ -62,20 +68,32 @@ final readonly class ProcessRateImportHandler
                     ++$attempts;
                 }
                 $decision = $failure instanceof AdmissionFailure
-                    ? new RetryDecision(true, $failure->retryAt() ?? DatePoint::createFromInterface($this->clock->now())->modify('+1 second'))
+                    ? new RetryDecision(true,
+                        $failure->retryAt() ?? DatePoint::createFromInterface($this->clock->now())->modify('+1 second'))
                     : $this->retryPolicy->decide($failure, $attempts);
-                $code = IncidentId::create();
-                $action = $decision->allowed ? RateImportAction::Defer : RateImportAction::Fail;
-                $saved = $this->repository->finish($claim, $action, $attempts, $decision->retryAt, $code, $failure->getMessage());
-                $this->logger->log($decision->allowed ? 'notice' : 'error', 'Обработка задания импорта завершилась ошибкой.', ['requested_date' => $claim->requestedDate, 'version' => $claim->version, 'action' => $action->name, 'saved' => $saved, 'error_code' => $code, 'exception_class' => $failure::class]);
+                $code     = IncidentId::create();
+                $action   = $decision->allowed ? RateImportAction::Defer : RateImportAction::Fail;
+                $saved    = $this->repository->finish($claim, $action, $attempts, $decision->retryAt, $code,
+                    $failure->getMessage());
+                $this->logger->log($decision->allowed ? 'notice' : 'error',
+                    'Обработка задания импорта завершилась ошибкой.', [
+                        'requested_date'  => $claim->requestedDate,
+                        'version'         => $claim->version,
+                        'action'          => $action->name,
+                        'saved'           => $saved,
+                        'error_code'      => $code,
+                        'exception_class' => $failure::class,
+                    ]);
 
                 return;
             }
             if (!$this->provider->isConfirmed($claim->requestedDate)) {
-                throw new \RuntimeException('Источник не подтвердил календарную дату в PostgreSQL.');
+                throw new RuntimeException('Источник не подтвердил календарную дату в PostgreSQL.');
             }
         }
+        // 4. Завершить задание только после подтверждения даты.
         $saved = $this->repository->finish($claim, RateImportAction::Complete, $attempts);
-        $this->logger->info('Завершение задания импорта.', ['requested_date' => $claim->requestedDate, 'version' => $claim->version, 'saved' => $saved]);
+        $this->logger->info('Завершение задания импорта.',
+            ['requested_date' => $claim->requestedDate, 'version' => $claim->version, 'saved' => $saved]);
     }
 }

@@ -8,7 +8,7 @@ use App\Cources\Infrastructure\Mapping\RateSetMapper;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\Schema;
-use DoctrineMigrations\Version20261030000000;
+use DoctrineMigrations\Version20261101000000;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -42,8 +42,8 @@ abstract class RateSetStorageTestCase extends KernelTestCase
                 SQL,
             $this->schema,
         ));
-        require_once \dirname(__DIR__, 3).'/migrations/Version20261030000000.php';
-        $migration = new Version20261030000000($this->connection, new NullLogger());
+        require_once \dirname(__DIR__, 3).'/migrations/Version20261101000000.php';
+        $migration = new Version20261101000000($this->connection, new NullLogger());
         $migration->up(new Schema());
         foreach ($migration->getSql() as $query) {
             self::assertSame([], $query->getParameters());

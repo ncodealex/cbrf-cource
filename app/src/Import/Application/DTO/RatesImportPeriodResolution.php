@@ -8,6 +8,9 @@ use App\Import\Domain\ValueObject\RatesImportPeriod;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Результат разрешения периода: итоговые границы и сведения об их корректировке относительно запроса.
+ */
 #[Exclude]
 final readonly class RatesImportPeriodResolution
 {

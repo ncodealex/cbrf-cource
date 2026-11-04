@@ -6,6 +6,9 @@ namespace App\Import\Application\DTO;
 
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Страница терминальных ошибок вместе с общим числом ошибок до применения лимита.
+ */
 #[Exclude]
 final readonly class RateImportErrorList
 {

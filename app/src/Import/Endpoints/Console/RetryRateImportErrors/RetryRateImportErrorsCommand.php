@@ -14,6 +14,9 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/**
+ * Возвращает одно или все задания Error в Waiting для повторной отправки диспетчером.
+ */
 #[AsCommand(name: 'app:rates:retry-errors', description: 'Вернуть ошибочные задания импорта в Waiting')]
 final readonly class RetryRateImportErrorsCommand
 {
@@ -32,7 +35,7 @@ final readonly class RetryRateImportErrorsCommand
         #[Option]
         bool $yes = false,
     ): int {
-        if ($all === (null !== $date)) {
+        if (!$this->validSelection($date, $all)) {
             $io->error('Укажите либо --date, либо --all.');
 
             return Command::INVALID;
@@ -48,7 +51,7 @@ final readonly class RetryRateImportErrorsCommand
             }
         }
         try {
-            $count = ($this->handler)(null === $date ? null : DatePointParser::parse($date)->format(DateFormatInterface::ISO));
+            $count = ($this->handler)($this->validateDate($date));
         } catch (\InvalidArgumentException|InvalidRateImportTransition $e) {
             $io->error($e->getMessage());
 
@@ -61,5 +64,15 @@ final readonly class RetryRateImportErrorsCommand
         }
 
         return Command::SUCCESS;
+    }
+
+    private function validSelection(?string $date, bool $all): bool
+    {
+        return $all !== (null !== $date);
+    }
+
+    private function validateDate(?string $date): ?string
+    {
+        return null === $date ? null : DatePointParser::parse($date)->format(DateFormatInterface::ISO);
     }
 }

@@ -9,6 +9,9 @@ use App\Import\Application\Message\ProcessRateImportMessage;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+/**
+ * Публикует сообщение о зарезервированном задании через шину Messenger.
+ */
 #[AsAlias(RateImportJobPublisherInterface::class)]
 final readonly class MessengerRateImportJobPublisher implements RateImportJobPublisherInterface
 {

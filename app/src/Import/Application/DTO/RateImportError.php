@@ -6,6 +6,9 @@ namespace App\Import\Application\DTO;
 
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Ошибка одного задания в терминальном состоянии: дата, число попыток и безопасные для вывода сведения о сбое.
+ */
 #[Exclude]
 final readonly class RateImportError
 {

@@ -64,10 +64,7 @@
     "autoload": {
         "psr-4": {
             "App\\": "src/"
-        },
-        "files": [
-            "src/Import/Infrastructure/Messenger/legacy-message.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {

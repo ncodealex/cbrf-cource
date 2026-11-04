@@ -13,6 +13,9 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
+/**
+ * Показывает терминальные ошибки импорта с фильтром по дате и лимитом строк.
+ */
 #[AsCommand(name: 'app:rates:errors', description: 'Просмотр терминальных ошибок импорта')]
 final readonly class RateImportErrorsCommand
 {
@@ -29,14 +32,7 @@ final readonly class RateImportErrorsCommand
         string $limit = '100',
     ): int {
         try {
-            if (null !== $date) {
-                $date = DatePointParser::parse($date)->format(DateFormatInterface::ISO);
-            }
-            $number = filter_var($limit, \FILTER_VALIDATE_INT);
-            if (false === $number) {
-                throw new \InvalidArgumentException('Лимит должен быть целым числом.');
-            }
-            $result = ($this->handler)($date, $number);
+            $result = ($this->handler)($this->validateDate($date), $this->validateLimit($limit));
         } catch (\InvalidArgumentException $e) {
             $io->error($e->getMessage());
 
@@ -56,5 +52,20 @@ final readonly class RateImportErrorsCommand
         $io->text(\sprintf('Всего ошибочных заданий: %d. Показано: %d.', $result->total, \count($rows)));
 
         return Command::SUCCESS;
+    }
+
+    private function validateDate(?string $date): ?string
+    {
+        return null === $date ? null : DatePointParser::parse($date)->format(DateFormatInterface::ISO);
+    }
+
+    private function validateLimit(string $limit): int
+    {
+        $number = filter_var($limit, \FILTER_VALIDATE_INT);
+        if (false === $number) {
+            throw new \InvalidArgumentException('Лимит должен быть целым числом.');
+        }
+
+        return $number;
     }
 }

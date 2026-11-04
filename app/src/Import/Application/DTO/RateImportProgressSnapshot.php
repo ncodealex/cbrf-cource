@@ -6,6 +6,9 @@ namespace App\Import\Application\DTO;
 
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Данные для вывода прогресса: счётчики периода, прошедшее время и оценка оставшегося времени.
+ */
 #[Exclude]
 final readonly class RateImportProgressSnapshot
 {

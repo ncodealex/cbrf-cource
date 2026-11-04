@@ -20,8 +20,10 @@ final readonly class GetRateImportProgressHandler
         int $elapsed = 0,
         int $initialConfirmed = 0,
     ): RateImportProgressSnapshot {
+        // 1. Получить согласованные счётчики из хранилища.
         $progress = $this->repository->progress($period);
 
+        // 2. Добавить размер периода и данные для оценки времени.
         return new RateImportProgressSnapshot(
             total: $period->count(),
             confirmed: $progress->confirmed,

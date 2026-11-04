@@ -7,6 +7,9 @@ namespace App\Import\Application\DTO;
 use App\Import\Domain\Enum\RateImportStatus;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Количество зарегистрированных заданий в каждом состоянии для выбранного периода.
+ */
 #[Exclude]
 final readonly class RateImportStatistics
 {

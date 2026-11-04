@@ -8,6 +8,9 @@ use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateResult;
 use App\Shared\Domain\DateFormatInterface;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
 
+/**
+ * Преобразует результат расчёта в поля JSON консольного ответа.
+ */
 #[Exclude]
 final class JsonResponse
 {

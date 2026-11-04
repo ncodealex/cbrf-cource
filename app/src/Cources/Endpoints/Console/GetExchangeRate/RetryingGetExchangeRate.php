@@ -8,7 +8,6 @@ use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateHandler;
 use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateQuery;
 use App\Cources\Application\UseCase\GetExchangeRate\GetExchangeRateResult;
 use App\Support\Retry\Application\RetryableFailure;
-use App\Support\Retry\Application\RetryDecision;
 use App\Support\Retry\Application\RetryPolicy;
 use Symfony\Component\Clock\ClockInterface;
 use Symfony\Component\Clock\DatePoint;
@@ -16,7 +15,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class RetryingGetExchangeRate
 {
-    private const int WAIT_BUDGET_MS = 300;
+    private const int WAIT_BUDGET_SECONDS = 5;
 
     public function __construct(
         private GetExchangeRateHandler $handler,
@@ -29,7 +28,7 @@ final readonly class RetryingGetExchangeRate
     public function __invoke(GetExchangeRateQuery $query): GetExchangeRateResult
     {
         $deadline = DatePoint::createFromInterface($this->clock->now())
-            ->modify(\sprintf('+%d milliseconds', self::WAIT_BUDGET_MS));
+            ->modify('+'.self::WAIT_BUDGET_SECONDS.' seconds');
 
         for ($attempt = 1;; ++$attempt) {
             try {
@@ -37,36 +36,19 @@ final readonly class RetryingGetExchangeRate
             } catch (RetryableFailure $failure) {
                 $decision = $this->policy->decide($failure, $attempt);
 
-                if (!$this->waitForRetry($decision, $deadline)) {
+                $now = DatePoint::createFromInterface($this->clock->now());
+                if (!$decision->allowed || null === $decision->retryAt || $now >= $deadline || $decision->retryAt >= $deadline) {
+                    throw $failure;
+                }
+
+                $delay = max(0.0, (float) $decision->retryAt->format('U.u') - (float) $now->format('U.u'));
+                if ($delay > 0) {
+                    $this->clock->sleep($delay);
+                }
+                if ($this->clock->now() >= $deadline) {
                     throw $failure;
                 }
             }
         }
-    }
-
-    private function waitForRetry(
-        RetryDecision $decision,
-        DatePoint $deadline,
-    ): bool {
-        if (!$decision->allowed || null === $decision->retryAt) {
-            return false;
-        }
-
-        $now = DatePoint::createFromInterface($this->clock->now());
-        if ($now >= $deadline || $decision->retryAt >= $deadline) {
-            return false;
-        }
-
-        $delay = max(
-            0.0,
-            (float) $decision->retryAt->format('U.u') - (float) $now->format('U.u'),
-        );
-        if ($delay > 0) {
-            $this->clock->sleep($delay);
-        }
-
-        $now = DatePoint::createFromInterface($this->clock->now());
-
-        return $now >= $decision->retryAt && $now < $deadline;
     }
 }

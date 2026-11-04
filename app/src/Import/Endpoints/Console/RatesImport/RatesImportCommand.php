@@ -11,13 +11,20 @@ use App\Import\Domain\Enum\RateImportStatus;
 use App\Import\Domain\Exception\InvalidRatesImportPeriod;
 use App\Shared\Domain\DateFormatInterface;
 use App\Shared\Domain\DatePointParser;
+use InvalidArgumentException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Throwable;
+use function sprintf;
+use const FILTER_VALIDATE_INT;
 
+/**
+ * Регистрирует недостающие задания за период и при запросе наблюдает за их выполнением.
+ */
 #[AsCommand(name: 'app:rates:import', description: 'Зарегистрировать задания импорта исторических котировок ЦБ РФ')]
 final readonly class RatesImportCommand
 {
@@ -48,25 +55,14 @@ final readonly class RatesImportCommand
         ?int $progressTimeout = null,
     ): int {
         try {
-            if ((null !== $progressInterval && $progressInterval < 1) || (null !== $progressTimeout && $progressTimeout < 0)) {
-                throw new \InvalidArgumentException('Некорректный интервал или timeout наблюдения.');
-            }
-            $numberOfDays = null;
-            if (null !== $days) {
-                if (!preg_match('/\A[+-]?[0-9]+\z/', $days)) {
-                    throw new InvalidRatesImportPeriod('Число дней должно быть целым числом.');
-                }
-                $numberOfDays = filter_var($days, \FILTER_VALIDATE_INT);
-                if (false === $numberOfDays) {
-                    throw new InvalidRatesImportPeriod('Число дней должно быть целым числом в допустимом диапазоне.');
-                }
-            }
-            $resolution = $this->factory->create(
-                null === $from ? null : DatePointParser::parse($from),
-                null === $to ? null : DatePointParser::parse($to),
-                $numberOfDays,
+            $resolution = $this->validateInput(
+                $from,
+                $to,
+                $days,
+                $progressInterval,
+                $progressTimeout
             );
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $io->getErrorStyle()->error($e->getMessage());
 
             return Command::INVALID;
@@ -90,7 +86,7 @@ final readonly class RatesImportCommand
         $period = $resolution->period;
         try {
             $result = ($this->handler)($period);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $io->getErrorStyle()->error($e->getMessage());
 
             return Command::FAILURE;
@@ -99,7 +95,7 @@ final readonly class RatesImportCommand
         $io->title('Импорт исторических котировок ЦБ РФ');
         $io->definitionList(
             [
-                'Период' => \sprintf(
+                'Период' => sprintf(
                     '%s — %s',
                     $period->from->format(DateFormatInterface::UI),
                     $period->to->format(DateFormatInterface::UI),
@@ -129,25 +125,61 @@ final readonly class RatesImportCommand
         return Command::SUCCESS;
     }
 
+    private function validateInput(
+        ?string $from,
+        ?string $to,
+        ?string $days,
+        ?int $progressInterval,
+        ?int $progressTimeout,
+    ): RatesImportPeriodResolution {
+
+        if ((null !== $progressInterval && $progressInterval < 1) || (null !== $progressTimeout && $progressTimeout < 0)) {
+            throw new InvalidArgumentException('Некорректный интервал или timeout наблюдения.');
+        }
+        $numberOfDays = null;
+        if (null !== $days) {
+            if (!preg_match('/\A[+-]?[0-9]+\z/', $days)) {
+                throw new InvalidRatesImportPeriod('Число дней должно быть целым числом.');
+            }
+            $numberOfDays = filter_var($days, FILTER_VALIDATE_INT);
+            if (false === $numberOfDays) {
+                throw new InvalidRatesImportPeriod('Число дней должно быть целым числом в допустимом диапазоне.');
+            }
+        }
+        return $this->factory->create(
+            null === $from ? null : DatePointParser::parse($from),
+            null === $to ? null : DatePointParser::parse($to),
+            $numberOfDays,
+        );
+    }
+
     private function displayAdjustment(
         SymfonyStyle $io,
         RatesImportPeriodResolution $resolution,
     ): void {
         if (null !== $resolution->requestedDays) {
             if (null !== $resolution->requestedFrom) {
-                $io->text(\sprintf('Исходный запрос: %d календарных дней начиная с %s.', $resolution->requestedDays, $resolution->requestedFrom->format(DateFormatInterface::UI)));
+                $io->text(sprintf('Исходный запрос: %d календарных дней начиная с %s.', $resolution->requestedDays,
+                    $resolution->requestedFrom->format(DateFormatInterface::UI)));
             } else {
-                $io->text(\sprintf('Исходный запрос: %d календарных дней по %s включительно.', $resolution->requestedDays, $resolution->requestedTo?->format(DateFormatInterface::UI)));
+                $io->text(sprintf('Исходный запрос: %d календарных дней по %s включительно.',
+                    $resolution->requestedDays, $resolution->requestedTo?->format(DateFormatInterface::UI)));
             }
         } else {
-            $io->text(\sprintf('Выбранный период: %s — %s', $resolution->requestedFrom?->format(DateFormatInterface::UI), $resolution->requestedTo?->format(DateFormatInterface::UI)));
+            $io->text(sprintf('Выбранный период: %s — %s',
+                $resolution->requestedFrom?->format(DateFormatInterface::UI),
+                $resolution->requestedTo?->format(DateFormatInterface::UI)));
         }
         if ($resolution->fromAdjusted) {
-            $io->text(\sprintf('Начальная дата выходит за допустимый диапазон. Минимальная доступная дата: %s.', $resolution->period->from->format(DateFormatInterface::UI)));
+            $io->text(sprintf('Начальная дата выходит за допустимый диапазон. Минимальная доступная дата: %s.',
+                $resolution->period->from->format(DateFormatInterface::UI)));
         }
         if ($resolution->toAdjusted) {
-            $io->text(\sprintf('Конечная дата выходит за допустимый диапазон. Максимальная доступная дата: %s.', $resolution->period->to->format(DateFormatInterface::UI)));
+            $io->text(sprintf('Конечная дата выходит за допустимый диапазон. Максимальная доступная дата: %s.',
+                $resolution->period->to->format(DateFormatInterface::UI)));
         }
-        $io->text(\sprintf('Будет использован период: %s — %s', $resolution->period->from->format(DateFormatInterface::UI), $resolution->period->to->format(DateFormatInterface::UI)));
+        $io->text(sprintf('Будет использован период: %s — %s',
+            $resolution->period->from->format(DateFormatInterface::UI),
+            $resolution->period->to->format(DateFormatInterface::UI)));
     }
 }

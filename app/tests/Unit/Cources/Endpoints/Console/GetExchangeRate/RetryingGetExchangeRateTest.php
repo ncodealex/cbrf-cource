@@ -14,6 +14,7 @@ use App\Cources\Endpoints\Console\GetExchangeRate\RetryingGetExchangeRate;
 use App\Cources\Infrastructure\Cbr\Exception\CbrRequestRateLimitExceeded;
 use App\Support\Retry\Application\RetryPolicy;
 use App\Tests\Unit\Cources\Domain\RateSets;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\DatePoint;
 use Symfony\Component\Clock\MockClock;
@@ -47,7 +48,7 @@ final class RetryingGetExchangeRateTest extends TestCase
         self::assertSame('2026-11-02 12:00:00.100000', $this->clock->now()->format('Y-m-d H:i:s.u'));
     }
 
-    public function testDoesNotStartThirdAttemptAtBudgetBoundary(): void
+    public function testRetryPolicyStopsAfterThirdAttempt(): void
     {
         $failure = new RateSetLoadBusy();
         $calls = 0;
@@ -61,8 +62,8 @@ final class RetryingGetExchangeRateTest extends TestCase
         try {
             ($this->retryingHandler($provider))($this->query());
         } finally {
-            self::assertSame(2, $calls);
-            self::assertSame('2026-11-02 12:00:00.100000', $this->clock->now()->format('Y-m-d H:i:s.u'));
+            self::assertSame(3, $calls);
+            self::assertSame('2026-11-02 12:00:00.300000', $this->clock->now()->format('Y-m-d H:i:s.u'));
         }
     }
 
@@ -97,6 +98,57 @@ final class RetryingGetExchangeRateTest extends TestCase
             ($this->retryingHandler($provider))($this->query());
         } finally {
             self::assertSame('2026-11-02 12:00:00.000000', $this->clock->now()->format('Y-m-d H:i:s.u'));
+        }
+    }
+
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function retryDelays(): iterable
+    {
+        yield 'one second' => [1];
+        yield 'three seconds' => [3];
+        yield 'four seconds' => [4];
+    }
+
+    #[DataProvider('retryDelays')]
+    public function testRetriesAtExplicitTimeWithinBudget(int $seconds): void
+    {
+        $calls = 0;
+        $retryAt = new DatePoint('2026-11-02 12:00:00 Europe/Moscow')->modify('+'.$seconds.' seconds');
+        $failure = new CbrRequestRateLimitExceeded($retryAt);
+        $provider = $this->createStub(RateSetProviderInterface::class);
+        $provider->method('resolve')->willReturnCallback(static function () use (&$calls, $failure) {
+            ++$calls;
+            if (1 === $calls) {
+                throw $failure;
+            }
+
+            return 2 === $calls ? RateSets::saturday() : RateSets::friday();
+        });
+
+        ($this->retryingHandler($provider))($this->query());
+
+        self::assertSame(3, $calls);
+        self::assertSame($retryAt->format('U.u'), $this->clock->now()->format('U.u'));
+    }
+
+    public function testHandlerTimeConsumesSharedBudget(): void
+    {
+        $calls = 0;
+        $failure = new RateSetLoadBusy();
+        $provider = $this->createStub(RateSetProviderInterface::class);
+        $provider->method('resolve')->willReturnCallback(function () use (&$calls, $failure): never {
+            ++$calls;
+            $this->clock->sleep(5);
+            throw $failure;
+        });
+
+        $this->expectExceptionObject($failure);
+        try {
+            ($this->retryingHandler($provider))($this->query());
+        } finally {
+            self::assertSame(1, $calls);
         }
     }
 

@@ -15,6 +15,9 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
+/**
+ * Восстанавливает задания с истёкшим lease и публикует доступные задания однократно или в цикле.
+ */
 #[AsCommand(name: 'app:rates:dispatch', description: 'Публикация заданий импорта и восстановление истёкших lease')]
 final class DispatchRateImportsCommand
 {
@@ -49,7 +52,7 @@ final class DispatchRateImportsCommand
         #[Option]
         bool $watch = false,
     ): int {
-        if ($once === $watch) {
+        if (!$this->validMode($once, $watch)) {
             $io->error('Укажите один режим: --once или --watch.');
 
             return Command::INVALID;
@@ -92,5 +95,10 @@ final class DispatchRateImportsCommand
         }
 
         return Command::SUCCESS;
+    }
+
+    private function validMode(bool $once, bool $watch): bool
+    {
+        return $once !== $watch;
     }
 }
