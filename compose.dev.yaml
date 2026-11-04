@@ -1,38 +1,41 @@
-# Development overlay: docker compose -f compose.yaml -f compose.dev.yaml ...
+x-dev-build: &dev-build
+    context: .
+    dockerfile: .docker/php/Dockerfile
+    target: dev
+    args:
+        DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+
+# docker compose -f compose.yaml -f compose.dev.yaml up --build -d --wait
 x-dev-app: &dev-app
     image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:dev
     environment:
-        APP_LOG_ROOT: /runtime/logs
         APP_ENV: dev
         APP_DEBUG: 1
-        DEFAULT_URI: http://app.localhost
         XDEBUG_MODE: ${XDEBUG_MODE:-off}
         PHP_IDE_CONFIG: serverName=${XDEBUG_SERVER_NAME:-cbrf-cource}
-    volumes:
+    volumes: !override
         - ./app:/app
-        - ./runtime/logs:/runtime/logs
     extra_hosts:
         - "host.docker.internal:host-gateway"
 
 services:
     app:
         <<: *dev-app
-        image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:dev
-        build:
-            target: dev
-            args:
-                APP_UID: ${APP_UID:-1000}
-                APP_GID: ${APP_GID:-1000}
+        build: *dev-build
     worker:
         <<: *dev-app
-
     import-dispatcher:
         <<: *dev-app
-
+    qa:
+        <<: *dev-app
+        build: *dev-build
+        profiles: [tools]
+        command: [app-qa]
     postgres:
         ports:
             - "127.0.0.1:${POSTGRES_EXPOSE_PORT:-5432}:5432"
-
     redis:
         ports:
             - "127.0.0.1:${REDIS_EXPOSE_PORT:-6379}:6379"

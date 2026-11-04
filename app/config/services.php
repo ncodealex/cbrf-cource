@@ -12,17 +12,7 @@ use Symfony\Component\Clock\Clock;
  */
 return [
     'parameters' => [
-        'env(IMPORT_DISPATCH_BATCH_SIZE)' => '20',
-        'env(IMPORT_DISPATCH_INTERVAL_SECONDS)' => '2',
-        'env(IMPORT_REDISPATCH_AFTER_SECONDS)' => '600',
-        'env(IMPORT_MAX_UNCLAIMED)' => '20',
-        'env(IMPORT_LEASE_SECONDS)' => '120',
-        'env(IMPORT_MAX_ATTEMPTS)' => '5',
-        'env(IMPORT_RETRY_INITIAL_DELAY_MS)' => '1000',
-        'env(IMPORT_RETRY_MAX_DELAY_MS)' => '60000',
-        'env(IMPORT_RETRY_JITTER_PERCENT)' => '20',
-        'env(IMPORT_PROGRESS_INTERVAL_SECONDS)' => '2',
-        'env(IMPORT_PROGRESS_TIMEOUT_SECONDS)' => '0',
+        'app.redis.default_url' => 'redis://redis:6379',
 
         'app.cbr.load_lock_ttl' => 30.0,
         'app.redis.connection_options' => [
@@ -30,8 +20,6 @@ return [
             'timeout' => 1.0,
             'read_timeout' => 1.0,
         ],
-        // Три probe по 2s: readiness < 7s с учётом завершения процессов.
-        'app.health.probe_timeout' => 2.0,
     ],
     'services' => [
         '_defaults' => [
@@ -48,19 +36,30 @@ return [
                 '../src/Cources/Infrastructure/Cbr/Response/',
                 '../src/Cources/Application/Exception/',
                 '../src/Cources/Infrastructure/Mapping/InvalidRateSetPayload.php',
-                '../src/Modules/*/Domain/',
-                '../src/Integration/*/Domain/',
             ],
         ],
 
         App\Cources\Domain\ExchangeRateCalculator::class => [],
+
         'app.import.retry_policy' => [
             'class' => App\Support\Retry\Application\RetryPolicy::class,
-            'arguments' => ['@'.Psr\Clock\ClockInterface::class, '%env(int:IMPORT_MAX_ATTEMPTS)%', '%env(int:IMPORT_RETRY_INITIAL_DELAY_MS)%', '%env(int:IMPORT_RETRY_MAX_DELAY_MS)%', '%env(int:IMPORT_RETRY_JITTER_PERCENT)%'],
+            'arguments' => [
+                '@'.Psr\Clock\ClockInterface::class,
+                '%env(int:default:app.import.default_max_attempts:IMPORT_MAX_ATTEMPTS)%',
+                '%env(int:default:app.import.default_retry_initial_delay_ms:IMPORT_RETRY_INITIAL_DELAY_MS)%',
+                '%env(int:default:app.import.default_retry_max_delay_ms:IMPORT_RETRY_MAX_DELAY_MS)%',
+                '%env(int:default:app.import.default_retry_jitter_percent:IMPORT_RETRY_JITTER_PERCENT)%',
+            ],
         ],
         'app.cbr.console_retry_policy' => [
             'class' => App\Support\Retry\Application\RetryPolicy::class,
-            'arguments' => ['@'.Psr\Clock\ClockInterface::class, 3, 100, 200, 20],
+            'arguments' => [
+                '@'.Psr\Clock\ClockInterface::class,
+                3,
+                100,
+                200,
+                20,
+            ],
         ],
         'app.cbr.lock_store' => [
             'class' => Symfony\Component\Lock\Store\RedisStore::class,
@@ -75,7 +74,7 @@ return [
         // Clock оставляем обёрткой над глобальными часами для поддержки MockClock в тестах.
         'app.timezone' => [
             'class' => DateTimeZone::class,
-            'arguments' => ['%env(TZ)%'],
+            'arguments' => ['%env(default:app.default_timezone:TZ)%'],
         ],
         'clock' => [
             'class' => Clock::class,
@@ -88,7 +87,7 @@ return [
             'class' => Redis::class,
             'factory' => [RedisAdapter::class, 'createConnection'],
             'arguments' => [
-                '%env(REDIS_URL)%',
+                '%env(default:app.redis.default_url:REDIS_URL)%',
                 '%app.redis.connection_options%',
             ],
         ],

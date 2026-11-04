@@ -3,10 +3,11 @@
 declare(strict_types=1);
 
 /*
- * Интеграционный модуль Cbr (src/Integration/Cbr): доступ к XML API Банка России.
+ * Адаптер Cbr (src/Cources/Infrastructure/Cbr): доступ к XML API Банка России.
  *
  * cbr.client — scoped HTTP client. Один вызов шлюза — одно обращение без повторов:
- * таймауты укладываются в бюджет Messenger handler (60s).
+ * timeout ограничивает ожидание сетевой активности, max_duration — длительность HTTP-запроса.
+ * Эти ограничения не задают общий предел времени Messenger handler, включая операции БД.
  */
 return [
     'parameters' => [

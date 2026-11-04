@@ -1,24 +1,25 @@
 # Самостоятельное окружение: test.sh задаёт уникальный project через -p.
 # Без опубликованных портов и рабочих volumes; исходники только для чтения.
+name: cbrf-cource-test
+x-test-image: &test-image
+    image: ${COMPOSE_PROJECT_NAME:-cbrf-cource-test}-app:test
+    build:
+        context: .
+        dockerfile: .docker/php/Dockerfile
+        target: dev
+        args:
+            DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+            APP_UID: ${APP_UID:-1000}
+            APP_GID: ${APP_GID:-1000}
 services:
     test:
-        image: ${COMPOSE_PROJECT_NAME:-starter}-app:test
-        build:
-            context: .
-            dockerfile: .docker/php/Dockerfile
-            target: dev
-            args:
-                DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
-                APP_UID: ${APP_UID:-1000}
-                APP_GID: ${APP_GID:-1000}
+        <<: *test-image
         init: true
-        entrypoint: ["sh", "/tests/run-tests.sh"]
+        entrypoint: [app-test]
         environment:
             APP_ENV: test
             APP_DEBUG: 1
-            APP_SECRET: test-secret-not-for-production
             TZ: ${TZ:-Europe/Moscow}
-            DEFAULT_URI: http://localhost
             POSTGRES_HOST: postgres
             POSTGRES_PORT: 5432
             POSTGRES_DB: app
@@ -33,7 +34,6 @@ services:
             XDEBUG_MODE: off
         volumes:
             - ./app:/source:ro
-            - ./.docker/scripts/run-tests.sh:/tests/run-tests.sh:ro
             - composer_cache:/home/app/.composer
         depends_on:
             postgres:
@@ -42,14 +42,21 @@ services:
                 condition: service_healthy
             rabbitmq:
                 condition: service_healthy
+            cbr-stub:
+                condition: service_healthy
 
     cbr-stub:
-        image: ${COMPOSE_PROJECT_NAME:-starter}-app:test
-        entrypoint: ["php", "-S", "0.0.0.0:8080", "/fixtures/stub.php"]
+        build:
+            context: .
+            dockerfile: .docker/php/Dockerfile
+            target: cbr-stub
+            args:
+                DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+        init: true
         volumes:
-            - ./app/tests/Fixtures/Cbr:/fixtures:ro
+            - ./app/tests/Fixtures/Cbr:/app/tests/Fixtures/Cbr:ro
         healthcheck:
-            test: ["CMD", "php", "-r", "exit(file_get_contents('http://localhost:8080/') === false ? 1 : 0);"]
+            test: ["CMD", "php", "/app/tests/Fixtures/Cbr/check-ready.php"]
             interval: 2s
             timeout: 3s
             retries: 20
@@ -69,7 +76,7 @@ services:
             retries: 30
 
     redis:
-        image: ${DOCKER_REGISTRY:-docker.io/library}/redis:${REDIS_VERSION:-8.10.2-alpine}
+        image: ${DOCKER_REGISTRY:-docker.io/library}/redis:${REDIS_VERSION:-8.2.9}
         command: ["redis-server", "--save", "", "--appendonly", "no"]
         tmpfs:
             - /data
@@ -80,7 +87,7 @@ services:
             retries: 30
 
     rabbitmq:
-        image: ${DOCKER_REGISTRY:-docker.io/library}/rabbitmq:${RABBITMQ_VERSION:-4.3.6-management-alpine}
+        image: ${DOCKER_REGISTRY:-docker.io/library}/rabbitmq:${RABBITMQ_VERSION:-4.4-management-alpine}
         environment:
             RABBITMQ_DEFAULT_USER: test
             RABBITMQ_DEFAULT_PASS: "test p@ss:#/%&$$word"
@@ -96,4 +103,5 @@ services:
 volumes:
     composer_cache:
         # Только архивы Composer; сохраняются между прогонами.
-        name: conexus-test-composer-${APP_UID:-1000}-${APP_GID:-1000}
+        external: true
+        name: cbrf-cource-composer-${APP_UID:-1000}-${APP_GID:-1000}

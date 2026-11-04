@@ -1233,7 +1233,7 @@ Lock store: `framework.lock = '%env(REDIS_URL)%'` (Redis уже есть).
 
 ### 16.4. HTTP (этап 2)
 
-Вернуть `nginx` + `php-fpm` (их Dockerfile и `default.conf` всё ещё в `.docker/`) либо отдельный
+Добавить `nginx` + `php-fpm` с соответствующими конфигурациями либо отдельный
 сервис `http` на FrankenPHP. Решается вместе с README.
 
 ### 16.5. README

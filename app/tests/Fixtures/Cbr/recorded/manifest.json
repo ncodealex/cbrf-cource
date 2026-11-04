@@ -1,0 +1,92 @@
+{
+  "2026-10-12": {
+    "file": "2026-10-12.xml",
+    "effectiveDate": "2026-10-10",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=12/10/2026",
+    "sha256": "775c867f5d68d7730149a4929f28b46a89dd224574394c1933dc50e16b6ae0dc"
+  },
+  "2026-10-13": {
+    "file": "2026-10-13.xml",
+    "effectiveDate": "2026-10-13",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=13/10/2026",
+    "sha256": "1174b71f461916b1e53cc762b6b9984d0f3815c2d7b2fc68ca31d79ae807a4d3"
+  },
+  "2026-10-14": {
+    "file": "2026-10-14.xml",
+    "effectiveDate": "2026-10-14",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=14/10/2026",
+    "sha256": "f36280edf6c4976edfa86142f3c4777e93d84b9fab5e3f1d18b0723a043902d1"
+  },
+  "2026-10-15": {
+    "file": "2026-10-15.xml",
+    "effectiveDate": "2026-10-15",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=15/10/2026",
+    "sha256": "b83dbf83194d62819cc1bf9eedce66e84a67a1b545cf360c21e83b3effb0318f"
+  },
+  "2026-10-16": {
+    "file": "2026-10-16.xml",
+    "effectiveDate": "2026-10-16",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=16/10/2026",
+    "sha256": "5b6bd97314fe4d087bb4793b612e1e6c4da69aaf087ec04fb465a285a2b7a089"
+  },
+  "2026-10-17": {
+    "file": "2026-10-17.xml",
+    "effectiveDate": "2026-10-17",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=17/10/2026",
+    "sha256": "fbc4b0d97fd4f729f6068ea6d97ecfa0b7618cc2095a28096c62cb927aa7ad8a"
+  },
+  "2026-10-18": {
+    "file": "2026-10-18.xml",
+    "effectiveDate": "2026-10-17",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=18/10/2026",
+    "sha256": "fbc4b0d97fd4f729f6068ea6d97ecfa0b7618cc2095a28096c62cb927aa7ad8a"
+  },
+  "2026-10-19": {
+    "file": "2026-10-19.xml",
+    "effectiveDate": "2026-10-17",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=19/10/2026",
+    "sha256": "fbc4b0d97fd4f729f6068ea6d97ecfa0b7618cc2095a28096c62cb927aa7ad8a"
+  },
+  "2026-10-20": {
+    "file": "2026-10-20.xml",
+    "effectiveDate": "2026-10-20",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=20/10/2026",
+    "sha256": "27db44bd475d4c7be225d7bc8403eba5d24d792f0c3d54519124aae9bc73e241"
+  },
+  "2026-10-21": {
+    "file": "2026-10-21.xml",
+    "effectiveDate": "2026-10-21",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=21/10/2026",
+    "sha256": "8d92fa842021eadc03189d02651fbf854452a91036f9996db6861990b30f2694"
+  },
+  "2026-10-22": {
+    "file": "2026-10-22.xml",
+    "effectiveDate": "2026-10-22",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=22/10/2026",
+    "sha256": "d3017c11c74245274e659ed3791a24ca59597dac033ba0c960cbc91c3831aeed"
+  },
+  "2026-10-23": {
+    "file": "2026-10-23.xml",
+    "effectiveDate": "2026-10-23",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=23/10/2026",
+    "sha256": "c33617b7b15604fcf38984ef69d59969c36090006ef390ce2a4d3817af7953cc"
+  },
+  "2026-10-24": {
+    "file": "2026-10-24.xml",
+    "effectiveDate": "2026-10-24",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=24/10/2026",
+    "sha256": "955d2e9e4cd5467af67079f1558adf16da1130b801e0ae6ed36c510156057dc4"
+  },
+  "2026-10-25": {
+    "file": "2026-10-25.xml",
+    "effectiveDate": "2026-10-24",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=25/10/2026",
+    "sha256": "955d2e9e4cd5467af67079f1558adf16da1130b801e0ae6ed36c510156057dc4"
+  },
+  "2026-10-26": {
+    "file": "2026-10-26.xml",
+    "effectiveDate": "2026-10-24",
+    "source": "https://www.cbr.ru/scripts/XML_daily.asp?date_req=26/10/2026",
+    "sha256": "955d2e9e4cd5467af67079f1558adf16da1130b801e0ae6ed36c510156057dc4"
+  }
+}

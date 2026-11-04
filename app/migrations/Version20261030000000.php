@@ -12,7 +12,7 @@ final class Version20261030000000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Неизменяемые официальные наборы курсов ЦБ и подтверждённые календарные даты';
+        return 'Наборы курсов ЦБ, календарные связи и задания импорта с индексами';
     }
 
     public function up(Schema $schema): void
@@ -35,10 +35,50 @@ final class Version20261030000000 extends AbstractMigration
                 )
                 SQL,
         );
+        $this->addSql(
+            <<<'SQL'
+                CREATE TABLE rate_import_jobs (
+                    requested_date DATE PRIMARY KEY,
+                    status VARCHAR(20) NOT NULL DEFAULT 'waiting',
+                    version BIGINT NOT NULL DEFAULT 0,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    lease_until TIMESTAMPTZ,
+                    dispatched_at TIMESTAMPTZ,
+                    error_text TEXT,
+                    error_code UUID,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    completed_at TIMESTAMPTZ
+                )
+                SQL,
+        );
+        $this->addSql(
+            <<<'SQL'
+                CREATE INDEX idx_rate_import_jobs_ready ON rate_import_jobs (available_at, requested_date)
+                WHERE status IN ('waiting', 'deferred')
+                SQL,
+        );
+        $this->addSql(
+            <<<'SQL'
+                CREATE INDEX idx_rate_import_jobs_expired_lease ON rate_import_jobs (lease_until, requested_date)
+                WHERE status = 'processing'
+                SQL,
+        );
+        $this->addSql(
+            <<<'SQL'
+                CREATE INDEX idx_rate_request_dates_effective ON rate_request_dates (effective_date, requested_date)
+                SQL,
+        );
     }
 
     public function down(Schema $schema): void
     {
+        $this->addSql(
+            <<<'SQL'
+                DROP TABLE rate_import_jobs
+                SQL,
+        );
         $this->addSql(
             <<<'SQL'
                 DROP TABLE rate_request_dates

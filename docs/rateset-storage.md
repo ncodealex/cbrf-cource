@@ -32,12 +32,12 @@ $repository->save($rateSet->effectiveDate, $rateSet);
 
 ## PostgreSQL
 
-Миграция `Version20261030000000` создаёт:
+Единая миграция `Version20261030000000` создаёт также таблицу Import Jobs и индексы. Таблицы курсов:
 
 | Таблица              | Столбцы                                                                                                    |
 |----------------------|------------------------------------------------------------------------------------------------------------|
 | `rate_sets`          | `effective_date DATE PRIMARY KEY`, `rates JSONB NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()` |
-| `rate_request_dates` | `requested_date DATE PRIMARY KEY`, `effective_date DATE NOT NULL REFERENCES rate_sets(effective_date)`     |
+| `rate_request_dates` | `requested_date DATE PRIMARY KEY`, `effective_date DATE NOT NULL REFERENCES rate_sets(effective_date) ON DELETE CASCADE`     |
 
 Один набор хранится на одну дату действия. Несколько дат запроса ссылаются на него без дублирования котировок.
 `created_at` устанавливается при первой вставке. Таблицы обслуживаются DBAL и миграцией. ORM и ORM SchemaTool не используются.

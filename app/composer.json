@@ -1,8 +1,8 @@
 {
-    "name": "app/symfony-backend-starter",
+    "name": "app/cbrf-cource",
     "type": "project",
     "license": "proprietary",
-    "description": "Symfony Backend Starter Template",
+    "description": "Курсы Банка России и асинхронный импорт",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
@@ -30,7 +30,6 @@
         "symfony/lock": "7.4.*",
         "symfony/messenger": "7.4.*",
         "symfony/monolog-bundle": "*",
-        "symfony/process": "7.4.*",
         "symfony/property-access": "7.4.*",
         "symfony/property-info": "7.4.*",
         "symfony/rate-limiter": "7.4.*",
@@ -46,7 +45,7 @@
         "phpstan/phpstan-phpunit": "*",
         "phpstan/phpstan-symfony": "*",
         "phpunit/phpunit": ">=13.4.4",
-        "symfony/browser-kit": "7.4.*"
+        "symfony/process": "7.4.*"
     },
     "config": {
         "allow-plugins": {
@@ -89,8 +88,7 @@
     },
     "scripts": {
         "auto-scripts": {
-            "cache:clear": "symfony-cmd",
-            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+            "cache:clear": "symfony-cmd"
         },
         "post-install-cmd": [
             "@auto-scripts"

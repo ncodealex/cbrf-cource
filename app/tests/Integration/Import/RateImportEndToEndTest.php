@@ -41,7 +41,10 @@ final class RateImportEndToEndTest extends KernelTestCase
         foreach ($this->transport->get() as $message) {
             $this->transport->ack($message);
         }
-        self::getContainer()->get(\Redis::class)->del('rateset:date:2026-10-21', 'rateset:date:2026-10-22', 'rateset:date:2026-10-23', 'rateset:date:2026-10-24');
+        $redis = self::getContainer()->get(\Redis::class);
+        for ($day = 12; $day <= 26; ++$day) {
+            $redis->del('rateset:date:2026-10-'.$day);
+        }
         $factory = self::getContainer()->get('limiter.cbr');
         $factory->create('cbr.global')->reset();
         $this->control('ok');
@@ -78,6 +81,32 @@ final class RateImportEndToEndTest extends KernelTestCase
         self::assertIsString($status);
 
         return $status;
+    }
+
+    public function testRecordedFortnightIsImportedByRealWorker(): void
+    {
+        $this->console('app:rates:import', '--from=2026-10-12', '--to=2026-10-26');
+        $this->console('app:rates:dispatch', '--once');
+        for ($day = 12; $day <= 26; ++$day) {
+            self::getContainer()->get('limiter.cbr')->create('cbr.global')->reset();
+            $this->consume();
+        }
+        $result = $this->connection->executeQuery(
+            <<<'SQL'
+                SELECT requested_date, effective_date
+                FROM rate_request_dates
+                ORDER BY requested_date
+                SQL,
+        );
+        $dates = $result->fetchAllKeyValue();
+        self::assertCount(15, $dates);
+        self::assertSame('2026-10-10', $dates['2026-10-12']);
+        self::assertSame('2026-10-17', $dates['2026-10-18']);
+        self::assertSame($dates['2026-10-17'], $dates['2026-10-19']);
+        self::assertSame('2026-10-24', $dates['2026-10-26']);
+        self::assertNotSame($dates['2026-10-13'], $dates['2026-10-14']);
+        $stats = HttpClient::create()->request('GET', 'http://cbr-stub:8080/')->toArray();
+        self::assertSame(15, $stats['count']);
     }
 
     public function testImportDispatchWorkerAndProgress(): void

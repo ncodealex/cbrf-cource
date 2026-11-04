@@ -1,15 +1,10 @@
-# Локальная конфигурация окружения: создаётся из .env.example (make up / make dev)
+# Необязательная локальная конфигурация Compose
 /.env
 /.env.*
 !/.env.example
 
-# Временные файлы и логи (каталоги сохраняются через .gitkeep)
-/runtime/*
-!/runtime/logs/
-!/runtime/tmp/
-/runtime/logs/*
-/runtime/tmp/*
-!/runtime/**/.gitkeep
+# Локальные артефакты прежних запусков
+/runtime/
 
 # IDE / инструменты
 /.idea/
@@ -17,5 +12,3 @@
 /.codex/
 /.claude/
 .DS_Store
-
-/runtime/logs/

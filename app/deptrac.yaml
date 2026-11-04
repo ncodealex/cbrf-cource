@@ -54,7 +54,7 @@ deptrac:
         - name: Support.Endpoints
           collectors:
               - type: directory
-                value: src/Support/[^/]+/(?:Endpoints|Presentation)/.*
+                value: src/Support/[^/]+/Endpoints/.*
         # Symfony Clock DatePoint — неизменяемый тип даты/времени, допустим в доменных моделях
         -   name: Symfony.DatePoint
             collectors:
@@ -83,7 +83,7 @@ deptrac:
                 -   type: classNameRegex
                     value: '#^Psr\\#'
 
-        # Остальной фреймворк и библиотеки — только Infrastructure и Presentation.
+        # Остальной фреймворк и библиотеки — только Infrastructure и Endpoints.
         -   name: Vendor
             collectors:
                 -   type: classNameRegex

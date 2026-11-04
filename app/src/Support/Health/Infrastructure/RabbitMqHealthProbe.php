@@ -6,6 +6,7 @@ namespace App\Support\Health\Infrastructure;
 
 use App\Support\Health\Application\HealthProbe;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Messenger\Bridge\Amqp\Transport\Connection;
 
 /**
  * Открывает и закрывает AMQP-соединение с брокером Messenger. Включается HEALTH_CHECK_RABBITMQ=1.
@@ -18,11 +19,10 @@ final readonly class RabbitMqHealthProbe implements HealthProbe
     public function __construct(
         #[Autowire(env: 'MESSENGER_TRANSPORT_DSN')]
         private string $dsn,
-        #[Autowire(env: 'bool:HEALTH_CHECK_RABBITMQ')]
+        #[Autowire(env: 'bool:default:app.health.default_check_rabbitmq:HEALTH_CHECK_RABBITMQ')]
         private bool $enabled,
         #[Autowire('%app.amqp.connection_options%')]
         private array $connectionOptions,
-        private ProbeProcess $process,
     ) {
     }
 
@@ -47,9 +47,12 @@ final readonly class RabbitMqHealthProbe implements HealthProbe
      */
     public function check(): void
     {
-        $this->process->check('rabbitmq', [
-            'dsn' => $this->dsn,
-            'options' => $this->connectionOptions,
-        ]);
+        $connection = Connection::fromDsn($this->dsn, $this->connectionOptions);
+        try {
+            // Проверяем соединение, авторизацию и vhost без объявления очередей.
+            $connection->channel();
+        } finally {
+            $connection->clear();
+        }
     }
 }

@@ -1,151 +1,135 @@
-# Symfony Backend Starter
+# Курсы Банка России
 
-## 1. Описание
+Symfony CLI-приложение для получения, хранения и расчёта валютных курсов,
+а также асинхронного импорта через PostgreSQL Jobs и RabbitMQ.
+`Cources` отвечает за курсы, `Import` — за задания; межмодульные API находятся
+в `Shared/Contracts`. HTTP-сервера и HTTP-маршрутов нет.
 
-Инфраструктурный шаблон backend-приложения на Symfony без бизнес-логики: Docker-окружение для разработки
-и production-like запуска, PostgreSQL, Redis, RabbitMQ, Messenger worker, health checks, тесты и инструменты
-качества кода. Используется как фундамент для новых проектов — бизнес-модули добавляются в `app/src/Modules/`.
+## Запуск
 
-## 2. Технологический стек
+Нужны Docker и Docker Compose 2.24.4 или новее (dev-конфигурация использует
+`!override`). PHP, Composer и Make на хосте не требуются.
 
-| Компонент | Версия |
-|---|---|
-| PHP (CLI, Alpine) | 8.4.27 — расширения pdo_pgsql, bcmath, intl, opcache, pcntl, redis 6.3.0, amqp 2.2.0 |
-| Symfony | 7.4 LTS (Framework, Messenger + AMQP, Cache, HttpClient, Serializer, Monolog) |
-| Doctrine | DBAL 4.5, Migrations 3.9 (DoctrineBundle 3.3) |
-| PostgreSQL | 18.6 |
-| Redis | 8.10.2 |
-| RabbitMQ | 4.3.6 + Management UI |
-| Nginx | 1.30.6 |
-| Traefik (только dev) | v3.6.4 |
-| Composer | 2.10.3 |
-| Тесты и качество | PHPUnit 13, PHPStan 2 (level max), PHP CS Fixer 3, Deptrac 4, Xdebug 3.5 (dev) |
-
-## 3. Архитектура проекта
-
-```text
-.docker/        Dockerfile'ы, конфигурация PHP/PHP-FPM/Nginx, скрипты make
-app/            Symfony-приложение (конфигурация только на PHP: app/config/*.php)
-runtime/        локальные временные файлы (в git не попадают)
-compose.yaml       production-like окружение
-compose.dev.yaml   development overlay (bind mount, Xdebug)
-compose.test.yaml  отдельные тестовые сервисы без опубликованных портов
+```sh
+docker compose up --build -d --wait --wait-timeout 600
+docker compose run --rm --no-deps app php bin/console app:rates:get USD --date=2026-10-24
+docker compose run --rm --no-deps app php bin/console app:rates:import --days=30 --yes --progress
+docker compose run --rm --no-deps app php bin/console app:rates:errors
 ```
 
-- **Образы.** `.docker/php/Dockerfile`: `base` (PHP CLI, Composer и расширения) → `dev`
-  (Xdebug, пользователь с UID/GID хоста) и `prod` (код приложения, пользователь `app` UID 10001).
-  Entry point устанавливает зависимости при отсутствии `vendor` или изменении Composer-манифестов,
-  в prod — без dev-пакетов, с authoritative classmap. Затем прогревает кеш.
-  Для установки при первом запуске нужен доступ к репозиториям Composer; `vendor` и `var` должны быть доступны для записи.
-- **Сервисы.** `app` — контейнер для консольных команд (`docker compose exec app php bin/console ...`),
-  `worker` — `messenger:consume async` (масштабируется `docker compose up -d --scale worker=N`),
-  `postgres`, `redis`, `rabbitmq`. HTTP-сервер не запускается.
-- **Данные** PostgreSQL, Redis и RabbitMQ хранятся в Docker Named Volumes `postgres_data`, `redis_data`,
-  `rabbitmq_data`. Оба режима используют один Compose project, поэтому видят одни и те же данные;
-  `make down` volumes не удаляет.
-- **Слои приложения** (`app/src`): `Shared/` — общий код, `Support/` — технические модули (сейчас `Health`),
-  `Modules/` — будущие бизнес-модули со структурой `Domain/ Application/ Infrastructure/ Presentation/`.
-  Domain не зависит от фреймворка; Application — от Domain и абстракций; Infrastructure реализует контракты;
-  Presentation — HTTP и Console. Правила проверяет Deptrac (`make qa`). Сервисы настраиваются атрибутами
-  (`#[Route]`, `#[AutowireIterator]`, `#[Autowire]`, `#[AutoconfigureTag]` ...), в `services.php` — только
-  resource/exclude, параметры и фабрики. Из фреймворка в Domain разрешён только `DatePoint`; в Application — дополнительно DI-атрибуты Symfony и PSR-интерфейсы
-  (`app/deptrac.yaml`).
+`app` применяет миграции, выполняет `app:health:ready` и завершается с кодом 0.
+На этом шаге проверка RabbitMQ включена обязательно. Worker и Dispatcher
+ждут успешного завершения обоих шагов. Постоянно работают только эти процессы
+и PostgreSQL, Redis, RabbitMQ. Ошибка миграции или readiness блокирует первый
+запуск зависимых процессов.
 
-## 4. Как поднять проект
-
-```bash
-make up
+```sh
+docker compose up -d --wait --scale worker=3
+docker compose logs --tail=100 worker import-dispatcher
+docker compose run --rm --no-deps app php bin/console app:health:ready
+docker compose down
 ```
 
-Собирает образы и запускает Compose. Файл `.env` необязателен. Внутри контейнера entrypoint
-устанавливает зависимости, готовит кеш и в сервисе `app` применяет миграции. Worker запускается
-после успешной подготовки `app`. При ошибке подготовки запуск завершается с ошибкой.
+Readiness проверяет PostgreSQL, Redis, версии миграций и, при
+`HEALTH_CHECK_RABBITMQ=1`, RabbitMQ. При подготовке `app` это значение задаётся
+для команды явно; при ручном запуске действует настройка окружения.
+Это проверка зависимостей перед стартом, а не heartbeat Worker.
+Worker обрабатывает SIGTERM и периодически перезапускается
+по лимиту времени/памяти. Эти лимиты не прерывают отдельный обработчик сообщения.
+После SIGTERM Compose даёт процессу 65 секунд на завершение, затем может отправить SIGKILL.
+Это окно остановки, а не гарантированный предел длительности обработки: HTTP-таймауты
+не ограничивают ожидание SQL-запросов и блокировок БД.
+Масштабируются исполнители; `app` масштабировать не нужно.
+Окружение рассчитано на один Compose-хост, а не на Swarm или HA-кластер.
 
-Entrypoint создаёт `/app/.env` из `/app/.env.dist`, если файла нет. Если `APP_SECRET`
-не задан в окружении и файле, генерирует его и сохраняет в `/app/.env`.
-Make не создаёт `.env` в корне репозитория.
+RabbitMQ Management: `http://localhost:15672`, локальные credentials `app` / `app`.
+Параметры можно задать через окружение или корневой `.env` по образцу `.env.example`.
+Credentials передаются отдельно от DSN. Значения по умолчанию для импорта,
+TTL кеша и необязательной проверки RabbitMQ определены в PHP-конфигурации;
+Compose только передаёт заданные переопределения.
 
-```bash
-docker compose exec app php bin/console list
-docker compose run --rm app php bin/console list
+## Development
+
+```sh
+docker compose -f compose.yaml -f compose.dev.yaml up --build -d --wait --wait-timeout 600
+docker compose -f compose.yaml -f compose.dev.yaml run --rm --no-deps app sh
 ```
 
-## 5. Как разрабатывать
+`./app` монтируется в `/app`: исходники, vendor, кеш и журналы доступны на хосте.
+**Логи находятся в `app/var/log/`**, без подкаталогов контейнеров и переменных пути.
+Файлы `main-YYYY-MM-DD.log`, `error-YYYY-MM-DD.log`, `cbrf-YYYY-MM-DD.log`
+одинаковы для ручных команд, Worker и Dispatcher. Monolog ротирует журналы:
+14 файлов main/cbrf и 30 файлов error. Entrypoint журналы не удаляет.
+XML попадает только в специализированный cbrf-журнал; остальные каналы его очищают.
+Часть событий также направляется в stderr; в dev его порог — warning.
+В production тот же путь `/app/var/log` хранится в named volume `app_logs`.
 
-```bash
-make dev     # development-окружение
-make shell   # консоль контейнера app (composer, bin/console)
-make logs    # логи (make logs s=worker)
-make down    # остановка без удаления данных
-make qa      # PHP CS Fixer, PHPStan, Deptrac; make cs-fix — исправить стиль
+Dev-пользователь по умолчанию имеет UID/GID 1000. На Linux при других
+идентификаторах задайте `APP_UID`/`APP_GID` перед сборкой. Make передаёт текущие
+`id -u`/`id -g`. Xdebug выключен, включается через `XDEBUG_MODE=debug`.
+После изменения кода долгоживущего обработчика перезапустите Worker.
+
+Production-образ содержит готовые зависимости, без Composer и Xdebug.
+Entrypoint проверяет vendor, создаёт `.env` из `.env.dist` при отсутствии,
+передаёт управление команде через `exec`. Symfony создаёт необходимый локальный
+кеш при запуске самой команды, без отдельного запуска `cache:warmup` в entrypoint.
+У production-контейнеров кеш независимый: подготовка `app` не прогревает Worker.
+APP_SECRET берётся из окружения или локального значения в `.env.dist`;
+генерации секрета и общего тома подготовки нет.
+Сервис `app` запускает `app-initialize` — скрипт `.docker/scripts/initialize.sh`:
+сначала миграции, затем readiness. Ошибка любой команды завершает подготовку.
+Worker и Dispatcher ждут успешного завершения `app` и healthy-зависимостей.
+Readiness проверяет подключения с настройками приложения, включая авторизацию
+RabbitMQ; локальные healthcheck инфраструктуры эту проверку не заменяют.
+Это проверка при инициализации, а не гарантия доступности на всё время работы.
+Обычные CLI-команды не выполняют эту последовательность автоматически.
+Dev-entrypoint дополнительно устанавливает зависимости при изменении
+composer.json/lock. Файловая блокировка защищает общий vendor и кеш при
+одновременном запуске dev-процессов. Общего production-состояния подготовки нет.
+
+## Тесты и QA
+
+```sh
+.docker/scripts/test.sh
+.docker/scripts/test.sh --testsuite Unit
+.docker/scripts/test-startup.sh
+
+docker compose -f compose.yaml -f compose.dev.yaml run --build --rm --no-deps qa
+docker compose -f compose.yaml -f compose.dev.yaml run --build --rm --no-deps qa app-qa fix
 ```
 
-- `./app` подключён в контейнеры bind mount'ом: изменения PHP-кода видны на следующем запросе без пересборки
-  (OPcache проверяет timestamp файлов). Worker — долгоживущий процесс: после изменения обработчиков
-  перезапустите его `docker compose restart worker`.
-- Зависимости Composer лежат в `app/vendor` на хосте; entrypoint выполняет `composer install`, если зависимости отсутствуют или Composer-манифесты изменились. Блокировка предотвращает одновременную установку из app и worker.
-- PHP-процессы dev-контейнеров работают от пользователя `app`, UID/GID которого совпадают с пользователем
-  хоста (Make передаёт `APP_UID`/`APP_GID` из `id -u`/`id -g`; их можно переопределить переменными окружения или аргументами Make). Файлы, созданные Composer,
-  Symfony Console или тестами, принадлежат вам — `sudo chown` не нужен. После изменения UID/GID выполните
-  `make dev`: образ пересоберётся.
-- Xdebug: `XDEBUG_MODE=debug` в `.env` и `make dev`; IDE слушает порт 9003, server name — `starter`
-  (маппинг `app/` → `/app`). Отладка запускается триггером (`XDEBUG_SESSION` cookie/параметр).
+Полный прогон создаёт уникальный Compose project с PostgreSQL, Redis, RabbitMQ
+и CBR Stub. Данные находятся в tmpfs, порты не публикуются. Исходники копируются
+из read-only mount в тестовый контейнер; рабочие vendor, кеш, журналы и dotenv
+не используются. После прогона контейнеры и теги образов удаляются; остаются
+кеш сборки и общий внешний кеш Composer.
 
-## 6. Как протестировать
+При выборе только `--testsuite Unit` скрипт не собирает Stub, не запускает
+БД/Redis/RabbitMQ и не выполняет миграции. Integration и полный набор используют
+изолированную инфраструктуру. Обёртка возвращает exit code тестов.
 
-```bash
-make test
+Прямой запуск Compose для полного набора:
+
+```sh
+docker volume create "cbrf-cource-composer-${APP_UID:-1000}-${APP_GID:-1000}"
+docker compose -p cbrf-cource-test -f compose.test.yaml up --build --abort-on-container-exit --exit-code-from test test
+docker compose -p cbrf-cource-test -f compose.test.yaml down
 ```
 
-Каждый `make test` создаёт уникальный Compose project с собственными PostgreSQL, Redis и RabbitMQ.
-У сервисов нет host ports; данные находятся в tmpfs. Исходники монтируются read-only и копируются
-в тестовый контейнер; его `vendor`, cache и logs не затрагивают рабочее приложение.
-Перед тестами создаётся тестовая БД и применяются миграции. После прогона/ошибки удаляются
-только контейнеры и сеть этого тестового project. Существующие volumes не удаляются;
-между прогонами сохраняется только отдельный cache архивов Composer для соответствующего UID/GID.
+`test-startup.sh` проверяет production-образ: миграции, блокировку запуска
+исполнителей при ошибке подключения приложения к Redis/RabbitMQ, три Worker, отсутствие
+Composer/dev-зависимостей, общий путь журналов для `run` и `exec`, часовой пояс,
+restart/recreate. Он удаляет только ресурсы собственного тестового project.
+QA выполняет CS Fixer check, PHPStan и Deptrac.
 
-Наборы: `Unit` (моки и стабы), `Application` (HTTP через ядро Symfony), `Integration`
-(реальные подключения, transport setup, bounded probes). Один набор: `make test a="--testsuite Unit"`.
-Тестовые пароли намеренно содержат пробелы и URI-спецсимволы. Regression tests воспроизводят
-зависшие AMQP/Redis подключения и SQL после успешного PostgreSQL handshake без остановки рабочих сервисов.
+Make — необязательная обёртка: `make dev`, `make shell`, `make test`,
+`make test a="--testsuite Unit"`, `make test-startup`, `make qa`, `make cs-fix`.
 
-## 7. Таймауты и остановка
+## Существующие данные
 
-| Операция | Бюджет по умолчанию |
-|---|---|
-| Readiness probe одной зависимости, включая SQL/DNS/handshake | 2s wall-clock |
-| Полная readiness: PostgreSQL + Redis + опциональный RabbitMQ | до 7s с завершением дочерних процессов |
-| HTTP-клиент startup readiness / общий startup deadline | 8s / 60s |
-| Redis connect/read | 1s / 1s |
-| AMQP connect/read/write/RPC/publisher confirm | по 1s |
-| AMQP heartbeat | 15s; не заменяет I/O timeouts |
-| HttpClient inactivity / max duration | 5s / 20s |
-| PHP execution / FPM request termination | 30s CPU / 40s wall-clock |
-| Nginx FastCGI connect / send/read | 3s / 45s |
-| FPM graceful stop | 50s |
-| Nginx worker shutdown / container stop | 50s / 60s |
-| Messenger handler budget / container stop | до 60s / 65s |
-
-Readiness запускает минимальные дочерние PHP-процессы без повторной загрузки Symfony Kernel.
-Credentials передаются через stdin, вывод драйверов отключён; зависший процесс принудительно
-завершается. RabbitMQ проверяется штатным разбором DSN Messenger и открытием channel:
-TLS, credentials и vhost проверяются без объявления очередей и без чтения сообщений.
-Это добавляет запуск PHP-процесса только health-запросам, а не бизнес-endpoints.
-
-Оба Messenger транспорта используют publisher confirms. Неуспешное подтверждение — ошибка
-публикации; дубли после неоднозначного сетевого отказа остаются возможны, handlers должны быть
-идемпотентными. `--time-limit=3600` ограничивает время жизни worker и проверяется между сообщениями,
-он не прерывает handler. 60s — контракт для handlers: их внешние операции должны иметь собственные
-deadlines; для длительных задач нужно согласованно увеличить stop grace period. При SIGTERM worker
-завершает текущее сообщение в пределах grace period, затем Docker может применить SIGKILL.
-
-## 8. Production performance
-
-Production устанавливает зависимости с `--no-dev --classmap-authoritative` при запуске контейнера.
-Кеш Symfony готовится после установки, когда доступны переменные окружения контейнера.
-PHP CLI работает от пользователя `app`; OPcache CLI по умолчанию выключен.
-После изменения кода нужно пересобрать образ и пересоздать контейнеры app/worker.
-
-## Хранение курсов ЦБ
-
-Получение через Redis → PostgreSQL → ЦБ, формат данных, правила конфликтов и тестирование описаны в [документации RateSet](docs/rateset-storage.md).
+`docker compose down` сохраняет volumes. Не используйте `down --volumes` для
+обновления рабочего окружения. Начальная миграция рассчитана на чистую БД:
+она не достраивает старую частично обновлённую схему с уже записанным номером
+миграции. Readiness сравнивает версии, а не фактическую структуру таблиц.
+Redis 8.2 использует отдельный `redis_data_v82`; прежний volume Redis 8.10
+не открывается старой версией и автоматически не удаляется.

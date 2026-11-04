@@ -1,35 +1,65 @@
 # Production-like окружение: код в образе, подготовка приложения при запуске.
-# Development — overlay compose.dev.yaml (make dev).
+# Development — overlay compose.dev.yaml; Make необязателен.
 name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}
 
+x-logging: &logging
+    driver: json-file
+    options:
+        max-size: "10m"
+        max-file: "3"
+
+x-app-build: &app-build
+    context: .
+    dockerfile: .docker/php/Dockerfile
+    target: prod
+    args:
+        DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+
 x-app-environment: &app-environment
+    # Окружение Symfony: режим, отладка и часовая зона.
     APP_ENV: ${APP_ENV:-prod}
     APP_DEBUG: ${APP_DEBUG:-0}
     APP_SECRET:
     TZ: ${TZ:-Europe/Moscow}
-    DEFAULT_URI: ${DEFAULT_URI:-http://localhost:${HTTP_PORT:-8080}}
+
+    # PostgreSQL: хранение курсов, календарных связей и заданий импорта.
     POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
     POSTGRES_PORT: ${POSTGRES_PORT:-5432}
     POSTGRES_DB: ${POSTGRES_DB:-app}
     POSTGRES_USER: ${POSTGRES_USER:-app}
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
-    REDIS_URL: redis://redis:6379
+
+    # Redis: кеш курсов, блокировки загрузки и общий RateLimiter.
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+
+    # RabbitMQ / Messenger: подключение к брокеру и учётные данные.
     MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-amqp://rabbitmq:5672/%2f}
     RABBITMQ_USER: ${RABBITMQ_USER:-app}
     RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-app}
-    HEALTH_CHECK_RABBITMQ: ${HEALTH_CHECK_RABBITMQ:-0}
+
+    # Readiness: включение дополнительной проверки AMQP-соединения.
+    HEALTH_CHECK_RABBITMQ:
+
+    # Источник курсов ЦБ и срок хранения наборов в кеше (секунды).
     CBR_BASE_URL: ${CBR_BASE_URL:-https://www.cbr.ru}
-    IMPORT_DISPATCH_BATCH_SIZE: ${IMPORT_DISPATCH_BATCH_SIZE:-20}
-    IMPORT_DISPATCH_INTERVAL_SECONDS: ${IMPORT_DISPATCH_INTERVAL_SECONDS:-2}
-    IMPORT_REDISPATCH_AFTER_SECONDS: ${IMPORT_REDISPATCH_AFTER_SECONDS:-600}
-    IMPORT_MAX_UNCLAIMED: ${IMPORT_MAX_UNCLAIMED:-20}
-    IMPORT_LEASE_SECONDS: ${IMPORT_LEASE_SECONDS:-120}
-    IMPORT_MAX_ATTEMPTS: ${IMPORT_MAX_ATTEMPTS:-5}
-    IMPORT_RETRY_INITIAL_DELAY_MS: ${IMPORT_RETRY_INITIAL_DELAY_MS:-1000}
-    IMPORT_RETRY_MAX_DELAY_MS: ${IMPORT_RETRY_MAX_DELAY_MS:-60000}
-    IMPORT_RETRY_JITTER_PERCENT: ${IMPORT_RETRY_JITTER_PERCENT:-20}
-    IMPORT_PROGRESS_INTERVAL_SECONDS: ${IMPORT_PROGRESS_INTERVAL_SECONDS:-2}
-    IMPORT_PROGRESS_TIMEOUT_SECONDS: ${IMPORT_PROGRESS_TIMEOUT_SECONDS:-0}
+    CACHE_DEFAULT_TTL:
+
+    # Dispatcher импорта: размер партии, период опроса и повторная публикация.
+    IMPORT_DISPATCH_BATCH_SIZE:
+    IMPORT_DISPATCH_INTERVAL_SECONDS:
+    IMPORT_REDISPATCH_AFTER_SECONDS:
+    IMPORT_MAX_UNCLAIMED:
+
+    # Worker импорта: аренда задания, число попыток и задержки повторов.
+    IMPORT_LEASE_SECONDS:
+    IMPORT_MAX_ATTEMPTS:
+    IMPORT_RETRY_INITIAL_DELAY_MS:
+    IMPORT_RETRY_MAX_DELAY_MS:
+    IMPORT_RETRY_JITTER_PERCENT:
+
+    # Консольный прогресс импорта: период обновления и предел ожидания (секунды).
+    IMPORT_PROGRESS_INTERVAL_SECONDS:
+    IMPORT_PROGRESS_TIMEOUT_SECONDS:
 
 x-app-depends-on: &app-depends-on
     postgres:
@@ -40,47 +70,49 @@ x-app-depends-on: &app-depends-on
         condition: service_healthy
 
 services:
+    # Одноразовая подготовка: миграции и проверка подключений из приложения.
+    # Успех локальных healthcheck зависимостей не проверяет настройки PHP-клиентов.
     app:
+        logging: *logging
         image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
-        build:
-            context: .
-            dockerfile: .docker/php/Dockerfile
-            target: prod
-            args:
-                DOCKER_REGISTRY: ${DOCKER_REGISTRY:-docker.io/library}
+        build: *app-build
         init: true
-        environment:
-            <<: *app-environment
-            APP_INITIALIZE: 1
+        volumes:
+            - app_logs:/app/var/log
+        environment: *app-environment
+        command: [app-initialize]
         depends_on: *app-depends-on
-        healthcheck:
-            test: ["CMD", "test", "-f", "/tmp/app-ready"]
-            interval: 10s
-            timeout: 3s
-            retries: 3
-            start_period: 120s
-        restart: unless-stopped
-        stop_grace_period: 50s
+        restart: "no"
 
     # Messenger consumer. Масштабируется: docker compose up -d --scale worker=N.
     # PID 1 — tini (init: true), SIGTERM доходит до php, который завершает текущее сообщение.
     # --time-limit/--memory-limit периодически перезапускают процесс через restart policy.
     worker:
+        logging: *logging
         image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
+        pull_policy: never
+        volumes:
+            - app_logs:/app/var/log
         command: ["php", "-d", "max_execution_time=0", "bin/console", "messenger:consume", "rates_import", "--time-limit=3600", "--memory-limit=128M", "--no-interaction", "-v"]
         init: true
         stop_signal: SIGTERM
-        # Бюджет одного handler <=60s; --time-limit ограничивает жизнь worker, не handler.
+        # Даём текущему сообщению 65s на завершение после SIGTERM, затем возможен SIGKILL.
+        # Это окно остановки, а не гарантированный предел времени handler.
         stop_grace_period: 65s
         environment: *app-environment
         depends_on:
+            # Инфраструктура нужна самому процессу; app дополнительно гарантирует миграции.
             <<: *app-depends-on
             app:
-                condition: service_healthy
+                condition: service_completed_successfully
         restart: unless-stopped
 
     import-dispatcher:
+        logging: *logging
         image: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-app:prod
+        pull_policy: never
+        volumes:
+            - app_logs:/app/var/log
         command: ["php", "bin/console", "app:rates:dispatch", "--watch", "--no-interaction"]
         init: true
         stop_signal: SIGTERM
@@ -88,13 +120,12 @@ services:
         restart: unless-stopped
         environment: *app-environment
         depends_on:
-            postgres:
-                condition: service_healthy
-            rabbitmq:
-                condition: service_healthy
+            <<: *app-depends-on
+            app:
+                condition: service_completed_successfully
 
     postgres:
-        container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-pg
+        logging: *logging
         image: ${DOCKER_REGISTRY:-docker.io/library}/postgres:${POSTGRES_VERSION:-18.6}
         environment:
             POSTGRES_USER: ${POSTGRES_USER:-app}
@@ -112,11 +143,11 @@ services:
         restart: unless-stopped
 
     redis:
-        container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-redis
-        image: ${DOCKER_REGISTRY:-docker.io/library}/redis:${REDIS_VERSION:-8.10.2-alpine}
+        logging: *logging
+        image: ${DOCKER_REGISTRY:-docker.io/library}/redis:${REDIS_VERSION:-8.2.9}
         command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
         volumes:
-            - redis_data:/data
+            - redis_data_v82:/data
         healthcheck:
             test: ["CMD", "redis-cli", "ping"]
             interval: 5s
@@ -125,8 +156,8 @@ services:
         restart: unless-stopped
 
     rabbitmq:
-        container_name: ${COMPOSE_PROJECT_NAME:-cbrf-cource}-rmq
-        image: ${DOCKER_REGISTRY:-docker.io/library}/rabbitmq:${RABBITMQ_VERSION:-4.3.6-management-alpine}
+        logging: *logging
+        image: ${DOCKER_REGISTRY:-docker.io/library}/rabbitmq:${RABBITMQ_VERSION:-4.4-management-alpine}
         # Имя узла фиксировано: от него зависит каталог данных в volume.
         hostname: rabbitmq
         environment:
@@ -146,6 +177,7 @@ services:
         restart: unless-stopped
 
 volumes:
+    app_logs:
     postgres_data:
-    redis_data:
+    redis_data_v82:
     rabbitmq_data:

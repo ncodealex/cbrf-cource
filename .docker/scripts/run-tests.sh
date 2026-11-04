@@ -1,10 +1,16 @@
 #!/bin/sh
 set -eu
-
-# vendor/var принадлежат этому контейнеру; рабочий /source не меняется.
-tar -C /source --exclude=./vendor --exclude=./var --exclude=./.phpunit.cache -cf - . | tar -C /app -xf -
-cd /app
-composer install --no-interaction --prefer-dist --no-progress
-php bin/console doctrine:database:create --if-not-exists --no-interaction --env=test
-php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=test
-exec php vendor/bin/phpunit "$@"
+# Исходники только для чтения; vendor, cache и logs принадлежат тестовому контейнеру.
+# Архив сначала создаётся целиком: ошибка чтения не теряется в POSIX pipeline.
+archive="$(mktemp)"
+trap 'rm -f "$archive"' 0
+tar -C /source --exclude=./vendor --exclude=./var --exclude=./.phpunit.cache \
+    --exclude=./.env --exclude='./.env.*' --exclude=./phpunit.xml \
+    --exclude=./.php-cs-fixer.php --exclude=./.php-cs-fixer.cache --exclude=./.deptrac.cache \
+    -cf "$archive" .
+tar -C /app -xf "$archive"
+cp /source/.env.dist /app/.env
+rm -f "$archive"
+trap - 0
+export APP_ENV=test
+exec app-entrypoint app-phpunit "$@"

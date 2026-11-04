@@ -21,7 +21,7 @@ final readonly class RedisRateSetCache implements RateSetCacheInterface
     public function __construct(
         private \Redis $redis,
         private RateSetMapper $mapper,
-        #[Autowire('%env(int:CACHE_DEFAULT_TTL)%')]
+        #[Autowire('%env(int:default:app.cache.default_ttl:CACHE_DEFAULT_TTL)%')]
         private int $ttl,
     ) {
         if ($ttl <= 0) {

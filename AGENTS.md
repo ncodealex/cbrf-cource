@@ -9,7 +9,7 @@
 - Во всех новых PHP-файлах — `declare(strict_types=1);`, типизированные параметры и возвращаемые значения.
 - Конфигурация Symfony — PHP в `app/config/`. YAML используется для Compose и Deptrac; запрет на YAML относится к конфигурации Symfony.
 - PHPStan — level `max`, PHP CS Fixer, Deptrac; настройки находятся в `app/`.
-- `.docker/` содержит Dockerfile и скрипты окружения. Корневой Makefile — основной интерфейс команд. Приложение внутри контейнера находится в `/app`, Compose-сервис называется `app`.
+- `.docker/` содержит Dockerfile и скрипты окружения. Основной интерфейс запуска — Docker Compose; Makefile остаётся необязательной обёрткой. Приложение внутри контейнера находится в `/app`, Compose-сервис называется `app`.
 
 ## Архитектура и размещение кода
 
@@ -62,7 +62,7 @@ app/src/
 | Размещение | Ответственность |
 |---|---|
 | `Support/Health/Application` | Контракт `HealthProbe`, оркестратор `ReadinessChecker`, результат `ReadinessReport` |
-| `Support/Health/Infrastructure` | Пробы PostgreSQL, Redis, RabbitMQ и запуск ограниченных по времени процессов |
+| `Support/Health/Infrastructure` | Пробы PostgreSQL, Redis, RabbitMQ и проверки через их клиенты |
 | `Support/RateLimiter/Application` | Контракт `RequestRateLimiter` и результат `RateLimitDecision` |
 | `Support/RateLimiter/Infrastructure` | Реализация через Symfony RateLimiter |
 | `Shared/Domain` | `DatePointParser`, `DateFormatInterface`, общие базовые исключения |
@@ -135,7 +135,7 @@ app/src/
 - `save()` атомарно сохраняет набор и календарную связь. Повтор идентичных данных допустим; изменение содержимого или подтверждённой связи вызывает `RateSetConflict`. Сохраняй поведение конкурентных INSERT и последующего отдельного SELECT при READ COMMITTED.
 - Redis хранит полный набор под `rateset:date:YYYY-MM-DD` с TTL из `CACHE_DEFAULT_TTL`. Общий `RateSetMapper` используется для хранения; он не заменяет маппер внешнего ответа ЦБ.
 - Refresh проверяет дату, получает все связанные даты, удаляет их кеш (либо ключ исходной даты, если связей нет), удаляет набор через репозиторий и повторно вызывает Provider для запрошенной даты.
-- Миграция `Version20261101203000.php` устанавливает `ON DELETE CASCADE`: удаление общего набора удаляет все его календарные связи. Refresh не восстанавливает заранее каждую из них и не является общей транзакцией Redis + БД + HTTP. Не описывай его как атомарную замену.
+- Миграция `Version20261030000000.php` устанавливает `ON DELETE CASCADE`: удаление общего набора удаляет все его календарные связи. Refresh не восстанавливает заранее каждую из них и не является общей транзакцией Redis + БД + HTTP. Не описывай его как атомарную замену.
 
 ### Граница интеграции ЦБ
 
@@ -154,14 +154,12 @@ make dev                              # dev-окружение
 make shell                            # shell сервиса app
 make test                             # все наборы в изолированном окружении
 make test a="--testsuite Unit"
-make test a="--testsuite Application"
 make test a="--testsuite Integration"
 make qa                               # CS Fixer check, PHPStan, Deptrac
 make cs-fix                           # изменяет форматирование PHP
 ```
 
 - Unit: доменные инварианты и расчёты, сценарии с подменами зависимостей, мапперы и ошибки адаптеров.
-- Application: HTTP через Symfony Kernel, сейчас health endpoints.
 - Integration: реальные PostgreSQL, Redis и RabbitMQ; хранение, конкурентные записи, очистка и таймауты.
 - `make test` создаёт отдельный Compose project; не направляй интеграционные тесты на рабочую БД или рабочие Redis-ключи. Для ЦБ используй подмену HTTP и fixtures в `app/tests/Fixtures/Cbr`.
 - При изменении расчёта проверяй номиналы, кросс-курсы, рубль, предыдущий набор и точность. При изменении хранения — cache miss/failure, идемпотентность, конфликты, связанные даты и каскадное удаление. При изменении адаптера — некорректные данные и отказы внешней системы.
@@ -182,7 +180,6 @@ make cs-fix                           # изменяет форматирова�
 
 Текущие расхождения не являются образцом для нового кода:
 
-- Health и его unit-тест пока используют каталог `Presentation`; целевое название — Endpoints. В Deptrac слой также называется Presentation и собирает оба варианта каталогов.
 - README и комментарии конфигурации местами описывают старый шаблон с `Modules/` и отдельной Integration. Реальный бизнес-модуль — Cources непосредственно в `app/src/`.
 - В `services.php` остались exclude-пути GetExchangeRate DTO без сегмента `UseCase`. При отдельной задаче синхронизации DI их необходимо актуализировать.
 - Console-команда GetExchangeRate пока импортирует инфраструктурное исключение ЦБ. Не распространять эту зависимость на новый код; исправление существующей границы требует отдельного изменения.
@@ -209,5 +206,19 @@ make cs-fix                           # изменяет форматирова�
 - ORM, Twig, WebProfiler, DebugBundle, Validator и Scheduler не установлены: не добавлять их ради шаблонной конфигурации Symfony. Планирование импорта выполняет собственная команда Dispatcher.
 - DoctrineBundle и MigrationsBundle нужны для DBAL Connection и миграций; phpstan-doctrine оставлен ради анализа DBAL, а не ORM.
 - Serializer, PropertyInfo, PropertyAccess, reflection-docblock и phpdoc-parser используются для преобразования XML ЦБ в типизированные DTO, включая коллекции. Не удалять их только из-за отсутствия прямых импортов в бизнес-коде.
-- BrowserKit нужен Application-тестам. Stopwatch остаётся транзитивной зависимостью Doctrine Migrations и CS Fixer; отдельный require-dev не нужен.
+- HTTP-тестов и зависимости BrowserKit нет. Stopwatch остаётся транзитивной зависимостью Doctrine Migrations и CS Fixer; отдельный require-dev не нужен.
 - ext-intl и ICU сохранены: FrameworkBundle при отсутствии intl выдаёт deprecation о производительности. Удаление прямых вызовов Intl из бизнес-кода само по себе не означает ненужность расширения для Symfony.
+
+## Docker Compose и подготовка окружения
+
+- Production: `docker compose up --build -d --wait --wait-timeout 600`. `app` выполняет миграции, затем app:health:ready с обязательным HEALTH_CHECK_RABBITMQ=1 и завершается; Worker и Dispatcher ждут service_completed_successfully. Ошибка любого шага блокирует их первый запуск. Масштабируются Worker, не app. CLI запускается через `docker compose run --rm --no-deps app php bin/console ...`.
+- Production-зависимости устанавливаются только при сборке образа. Composer и Xdebug отсутствуют в конечном образе. Entrypoint проверяет vendor, создаёт dotenv из .env.dist и прогревает кеш; миграции не являются побочным эффектом entrypoint.
+- Последовательность миграции → readiness находится в `.docker/scripts/initialize.sh`, установленном как `app-initialize` в dev/prod. Compose задаёт только эту команду для сервиса app; shell-логику в YAML не переносить.
+- Dev-entrypoint устанавливает зависимости при изменении composer.json/lock. Только dev использует flock для общих vendor/cache.
+- Единственный путь журналов — kernel.logs_dir (`/app/var/log`). В dev bind mount `./app` делает журналы доступными в `app/var/log` на хосте; в production используется app_logs. Не добавлять APP_LOG_ROOT/APP_LOG_DIR, каталоги hostname и уборку журналов в entrypoint. Ротацией занимается Monolog.
+- Общего состояния подготовки и генерации APP_SECRET нет. Symfony получает APP_SECRET из окружения или локального .env.dist; текущие CLI-сценарии не используют подписанные URL, сессии или CSRF.
+- `test.sh` создаёт уникальный Compose project и очищает его после прогона. Полный/Integration наборы используют изолированные PostgreSQL, Redis, RabbitMQ и CBR Stub; `--testsuite Unit` не запускает инфраструктуру и миграции.
+- Перед прямым запуском тестового Compose создать внешний volume `cbrf-cource-composer-${APP_UID:-1000}-${APP_GID:-1000}`. Обёртка делает это автоматически.
+- QA: `docker compose -f compose.yaml -f compose.dev.yaml run --build --rm --no-deps qa`; исправление стиля — добавить `app-qa fix`.
+- `test-startup.sh` проверяет однократные миграции, блокировку старта исполнителей при ошибке readiness Redis/RabbitMQ, три Worker, отсутствие Composer/dev-зависимостей, одинаковое логирование через run/exec, TZ, restart/recreate. Удаляются только ресурсы тестового project.
+- Redis 8.2 использует отдельный redis_data_v82: данные Redis 8.10 нельзя открывать старой версией. Старые рабочие volumes не удалять при обновлении окружения.

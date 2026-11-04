@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 $finder = new PhpCsFixer\Finder()
-    ->in([__DIR__.'/src', __DIR__.'/tests', __DIR__.'/config', __DIR__.'/migrations', __DIR__.'/public'])
-    ->append([__FILE__, __DIR__.'/bin/console', __DIR__.'/bin/check-dependency'])
+    ->in([__DIR__.'/src', __DIR__.'/tests', __DIR__.'/config', __DIR__.'/migrations'])
+    ->append([__FILE__, __DIR__.'/bin/console'])
     ->notPath(['bundles.php', 'reference.php']);
 
 return new PhpCsFixer\Config()

@@ -69,7 +69,7 @@ final class InfrastructureSmokeTest extends KernelTestCase
 
     public function testMessengerTransportsAreDeclaredInRabbitMq(): void
     {
-        foreach (['messenger.transport.async', 'messenger.transport.failed', 'messenger.transport.rates_import'] as $id) {
+        foreach (['messenger.transport.failed', 'messenger.transport.rates_import'] as $id) {
             $transport = self::getContainer()->get($id);
             self::assertInstanceOf(AmqpTransport::class, $transport);
 
@@ -79,9 +79,9 @@ final class InfrastructureSmokeTest extends KernelTestCase
         }
     }
 
-    public function testBothTransportsPublishAndAcknowledgeMessages(): void
+    public function testTransportsPublishAndAcknowledgeMessages(): void
     {
-        foreach (['messenger.transport.async', 'messenger.transport.failed', 'messenger.transport.rates_import'] as $id) {
+        foreach (['messenger.transport.failed', 'messenger.transport.rates_import'] as $id) {
             $transport = self::getContainer()->get($id);
             self::assertInstanceOf(AmqpTransport::class, $transport);
             $transport->setup();

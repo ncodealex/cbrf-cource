@@ -11,11 +11,11 @@
 | `doctrine/dbal` | PostgreSQL, параметризованный SQL, транзакции, блокировки, миграции и инфраструктурные пробы |
 | `doctrine/doctrine-bundle` | Регистрация общего DBAL Connection и конфигурация подключения Symfony |
 | `doctrine/doctrine-migrations-bundle` | Запуск существующих SQL-миграций при подготовке приложения и тестов |
-| `symfony/framework-bundle` | Kernel, DI, HTTP, конфигурация и Application-тесты |
+| `symfony/framework-bundle` | Kernel, DI, конфигурация и интеграционные тесты |
 | `symfony/console` | Команды получения, Refresh, импорта и Dispatcher |
 | `symfony/clock` | DatePoint, внедряемые часы и MockClock в тестах |
 | `symfony/dotenv` | Загрузка окружения через Symfony Runtime и bootstrap тестов |
-| `symfony/runtime` | Entrypoints `bin/console` и `public/index.php` |
+| `symfony/runtime` | Entrypoint `bin/console` |
 | `symfony/flex` | Composer auto-scripts и согласование установленных Symfony recipes |
 | `symfony/http-client` | Scoped `cbr.client`, HTTP-моки, управление CBR Stub в E2E |
 | `symfony/serializer` | XML → внешние DTO ЦБ; XmlEncoder, Denormalizer, ObjectNormalizer |
@@ -28,14 +28,13 @@
 | `symfony/messenger` | Worker, обработка сообщений и подтверждения доставки |
 | `symfony/amqp-messenger` | Существующие RabbitMQ-транспорты, включая `rates_import` |
 | `symfony/monolog-bundle` | Регистрация Monolog, каналов и файловых обработчиков |
-| `symfony/process` | Ограниченные по времени health-пробы и subprocess в интеграционных тестах |
 
 ## Инструменты разработки
 
 | Пакет | Использование |
 |---|---|
-| `phpunit/phpunit` | Unit, Application, Integration, E2E и конкурентные тесты |
-| `symfony/browser-kit` | KernelBrowser в HTTP-тестах health endpoints; шаблоны Twig для этого не нужны |
+| `symfony/process` | Subprocess в интеграционных тестах; транзитивная зависимость инструментов |
+| `phpunit/phpunit` | Unit, Integration, E2E и конкурентные тесты |
 | `phpstan/phpstan` | Статический анализ на уровне max |
 | `phpstan/phpstan-symfony` | Типы сервисов из прогретого test-контейнера Symfony |
 | `phpstan/phpstan-doctrine` | DBAL extensions и stubs; удаление ORM не делает этот пакет лишним |

@@ -11,7 +11,6 @@ final readonly class PostgresHealthProbe implements HealthProbe
 {
     public function __construct(
         private Connection $connection,
-        private ProbeProcess $process,
     ) {
     }
 
@@ -36,10 +35,14 @@ final readonly class PostgresHealthProbe implements HealthProbe
      */
     public function check(): void
     {
-        /**
-         * @var array<string, mixed> $parameters параметры подключения DBAL
-         */
-        $parameters = $this->connection->getParams();
-        $this->process->check('postgres', $parameters);
+        $result = $this->connection->executeQuery(
+            <<<'SQL'
+                SELECT 1
+                SQL,
+        );
+        $value = $result->fetchOne();
+        if (1 !== $value && '1' !== $value) {
+            throw new \RuntimeException('PostgreSQL не подтвердил готовность.');
+        }
     }
 }
